@@ -6,6 +6,7 @@ const router = Router();
 
 // Read operations: all authenticated roles
 router.get('/', authenticate, EmployeeController.list);
+router.get('/:id/summary', authenticate, EmployeeController.getSummary);
 router.get('/:id', authenticate, EmployeeController.getById);
 
 // Write operations: HR_MANAGER, HR_PAYROLL_MANAGER, and ADMIN
