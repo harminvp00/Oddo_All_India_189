@@ -127,6 +127,61 @@ export interface JobPositionFilterParams {
   limit?: number;
 }
 
+// Working Schedule Types (matches Backend Schema)
+export type ScheduleType = 'FIXED' | 'FLEXIBLE';
+
+export interface ScheduleDay {
+  id?: string;
+  dayOfWeek: number; // 1 (Mon) to 7 (Sun)
+  startTime?: string | null; // e.g. "09:00"
+  endTime?: string | null; // e.g. "18:00"
+  breakMinutes: number;
+  dayHours?: number;
+}
+
+export interface WorkingSchedule {
+  id: string;
+  name: string;
+  scheduleType: ScheduleType;
+  weeklyHours: number;
+  isActive: boolean;
+  employeeCount?: number;
+  contractCount?: number;
+  dayCount?: number;
+  scheduleDays?: ScheduleDay[];
+}
+
+export interface CreateWorkingScheduleDTO {
+  name: string;
+  scheduleType?: ScheduleType;
+  isActive?: boolean;
+  scheduleDays: {
+    dayOfWeek: number;
+    startTime?: string | null;
+    endTime?: string | null;
+    breakMinutes: number;
+  }[];
+}
+
+export interface UpdateWorkingScheduleDTO {
+  name?: string;
+  scheduleType?: ScheduleType;
+  isActive?: boolean;
+  scheduleDays?: {
+    dayOfWeek: number;
+    startTime?: string | null;
+    endTime?: string | null;
+    breakMinutes: number;
+  }[];
+}
+
+export interface WorkingScheduleFilterParams {
+  search?: string;
+  isActive?: 'true' | 'false' | 'all';
+  page?: number;
+  limit?: number;
+}
+
 // Generic CRUD Types
 export interface ExampleItem {
   id: string;
@@ -146,3 +201,4 @@ export interface APIFilters {
   page?: number;
   limit?: number;
 }
+

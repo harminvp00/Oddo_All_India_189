@@ -1,182 +1,299 @@
-import React from 'react';
-import { PageHeader } from '../components/ui/PageHeader';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 import { 
-  Users, 
-  UserCheck, 
-  UserMinus, 
-  CalendarClock, 
-  Banknote, 
-  Clock,
-  AlertTriangle,
+  Building2, 
+  Briefcase, 
+  CalendarDays,
+  CheckCircle2, 
   ArrowRight,
-  ChevronRight
+  Database,
+  Plus,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { brand } from '../config/brand';
-
-const KPI_DATA = [
-  { label: 'Total Employees', value: '124', icon: <Users className="w-5 h-5 text-blue-600" />, trend: '+4 this month' },
-  { label: 'Present Today', value: '112', icon: <UserCheck className="w-5 h-5 text-emerald-600" />, trend: '90% attendance' },
-  { label: 'On Leave', value: '8', icon: <UserMinus className="w-5 h-5 text-orange-600" />, trend: '3 sick leave' },
-  { label: 'Pending Leave', value: '14', icon: <CalendarClock className="w-5 h-5 text-purple-600" />, trend: 'Needs approval' },
-  { label: 'Monthly Payroll', value: '₹4.2M', icon: <Banknote className="w-5 h-5 text-slate-600" />, trend: '+2% vs last' },
-  { label: 'Pending Payments', value: '3', icon: <Clock className="w-5 h-5 text-rose-600" />, trend: 'Due today' },
-];
-
-const RECENT_EMPLOYEES = [
-  { name: 'Neha Shah', position: 'Software Engineer', date: '2 days ago' },
-  { name: 'Amit Patel', position: 'Product Manager', date: '5 days ago' },
-  { name: 'Priya Mehta', position: 'HR Executive', date: '1 week ago' },
-];
-
-const PAYROLL_ALERTS = [
-  { message: '3 employees missing bank details', type: 'error' },
-  { message: '2 contracts expiring soon', type: 'warning' },
-  { message: 'Pending payroll approvals', type: 'info' },
-];
+import { DepartmentService } from '../services/departmentService';
+import { PositionService } from '../services/positionService';
+import { ScheduleService } from '../services/scheduleService';
+import { Link } from 'react-router-dom';
+import type { Department, JobPosition, WorkingSchedule } from '../types';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [positions, setPositions] = useState<JobPosition[]>([]);
+  const [schedules, setSchedules] = useState<WorkingSchedule[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const [deptRes, posRes, schedRes] = await Promise.all([
+          DepartmentService.listDepartments({ limit: 100 }),
+          PositionService.listPositions({ limit: 100 }),
+          ScheduleService.listSchedules({ limit: 100 }),
+        ]);
+        if (deptRes.success) setDepartments(deptRes.data);
+        if (posRes.success) setPositions(posRes.data);
+        if (schedRes.success) setSchedules(schedRes.data);
+      } catch (err) {
+        console.error('Failed to load dashboard live stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadStats();
+  }, []);
+
+  const totalDepts = departments.length;
+  const activeDepts = departments.filter(d => d.isActive).length;
+  const totalPos = positions.length;
+  const activePos = positions.filter(p => p.isActive).length;
+  const totalSched = schedules.length;
+  const activeSched = schedules.filter(s => s.isActive).length;
+
   return (
-    <div className="space-y-6 animate-fadeIn pb-8">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Good morning, {user?.name?.split(' ')[0] || 'Rahul'}</h1>
-        <p className="text-sm text-slate-500 font-medium mt-1">Here's what's happening across your organization.</p>
+    <div className="space-y-6 animate-fadeIn pb-12">
+      {/* Welcome Banner */}
+      <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="relative z-10 max-w-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-indigo-100 text-xs font-semibold mb-3 border border-white/10">
+            <Database className="w-3.5 h-3.5 text-emerald-400" />
+            PostgreSQL Live Backend Connected
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            Welcome back, {user?.name?.split(' ')[0] || 'Admin'}!
+          </h1>
+          <p className="text-indigo-100/90 text-sm mt-2 leading-relaxed">
+            Manage organizational hierarchy, departments, job positions, and weekly working schedules seamlessly with real-time PostgreSQL synchronization.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 mt-6">
+            <Link
+              to="/departments"
+              className="inline-flex items-center gap-2 px-4.5 py-2.5 rounded-2xl bg-white text-indigo-900 hover:bg-indigo-50 font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95"
+            >
+              <Building2 className="w-4 h-4 text-indigo-600" />
+              <span>Departments</span>
+            </Link>
+            <Link
+              to="/positions"
+              className="inline-flex items-center gap-2 px-4.5 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white border border-white/30 backdrop-blur-md font-bold text-xs sm:text-sm transition-all active:scale-95"
+            >
+              <Briefcase className="w-4 h-4 text-white" />
+              <span>Job Positions</span>
+            </Link>
+            <Link
+              to="/schedules"
+              className="inline-flex items-center gap-2 px-4.5 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white border border-white/30 backdrop-blur-md font-bold text-xs sm:text-sm transition-all active:scale-95"
+            >
+              <CalendarDays className="w-4 h-4 text-amber-300" />
+              <span>Working Schedules</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Decorative background glow */}
+        <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {KPI_DATA.map((kpi, idx) => (
-          <Card key={idx} className="hover:shadow-md transition-shadow border-slate-200/60">
-            <CardContent className="p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="p-2 bg-slate-50 rounded-lg">{kpi.icon}</div>
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Departments */}
+        <Card className="hover:shadow-md transition-shadow border-slate-200/80">
+          <CardContent className="p-5 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Departments</span>
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                <Building2 className="w-5 h-5" />
               </div>
-              <div>
-                <div className="text-2xl font-extrabold text-slate-900">{kpi.value}</div>
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">{kpi.label}</div>
-                <div className="text-[10px] font-medium text-slate-400 mt-1">{kpi.trend}</div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold text-slate-900">{loading ? '...' : totalDepts}</div>
+              <div className="flex items-center gap-1 text-xs text-emerald-600 font-semibold mt-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{loading ? '...' : `${activeDepts} Active in DB`}</span>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Job Positions */}
+        <Card className="hover:shadow-md transition-shadow border-slate-200/80">
+          <CardContent className="p-5 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Job Positions</span>
+              <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold">
+                <Briefcase className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold text-slate-900">{loading ? '...' : totalPos}</div>
+              <div className="flex items-center gap-1 text-xs text-emerald-600 font-semibold mt-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{loading ? '...' : `${activePos} Active Designations`}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Working Schedules */}
+        <Card className="hover:shadow-md transition-shadow border-slate-200/80">
+          <CardContent className="p-5 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Working Schedules</span>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                <CalendarDays className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold text-slate-900">{loading ? '...' : totalSched}</div>
+              <div className="flex items-center gap-1 text-xs text-emerald-600 font-semibold mt-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{loading ? '...' : `${activeSched} Active Shifts`}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Add Actions */}
+        <Card className="hover:shadow-md transition-shadow border-slate-200/80 bg-slate-50/50">
+          <CardContent className="p-5 flex flex-col justify-between h-full">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Actions</span>
+            <div className="space-y-1.5 mt-2">
+              <Link to="/departments" className="block">
+                <Button variant="outline" size="sm" className="w-full justify-start text-xs bg-white py-1.5" leftIcon={<Plus className="w-3.5 h-3.5 text-indigo-600" />}>
+                  Add Department
+                </Button>
+              </Link>
+              <Link to="/positions" className="block">
+                <Button variant="outline" size="sm" className="w-full justify-start text-xs bg-white py-1.5" leftIcon={<Plus className="w-3.5 h-3.5 text-violet-600" />}>
+                  Add Position
+                </Button>
+              </Link>
+              <Link to="/schedules" className="block">
+                <Button variant="outline" size="sm" className="w-full justify-start text-xs bg-white py-1.5" leftIcon={<Plus className="w-3.5 h-3.5 text-amber-600" />}>
+                  Add Schedule
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Main Content Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Chart Area */}
-        <Card className="lg:col-span-2 border-slate-200/60">
-          <CardHeader>
-            <CardTitle>Attendance & Leave Overview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* CSS-based Mock Chart */}
-            <div className="h-64 flex items-end gap-2 pt-4">
-              {[60, 80, 45, 90, 75, 100, 85].map((h, i) => (
-                <div key={i} className="flex-1 flex flex-col justify-end group">
-                  <div className="w-full bg-[var(--brand-soft)] rounded-t-md relative h-full flex items-end">
-                    <div 
-                      className="w-full bg-[var(--brand)] rounded-t-md transition-all duration-500 hover:bg-[var(--brand-hover)] cursor-pointer"
-                      style={{ height: `${h}%` }}
-                    />
-                    <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded transition-opacity">
-                      {h}%
-                    </div>
-                  </div>
-                  <div className="text-center text-[10px] font-semibold text-slate-400 mt-2">
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Alerts & Action Items */}
-        <Card className="border-slate-200/60 flex flex-col">
-          <CardHeader>
+        {/* Recent Departments List */}
+        <Card className="border-slate-200/80 shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-orange-500" />
-              <CardTitle>Attention Required</CardTitle>
+              <Building2 className="w-4 h-4 text-indigo-600" />
+              <CardTitle className="text-sm">Departments</CardTitle>
             </div>
-          </CardHeader>
-          <CardContent className="flex-1">
-            <div className="space-y-4">
-              {PAYROLL_ALERTS.map((alert, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                    alert.type === 'error' ? 'bg-rose-500' : 
-                    alert.type === 'warning' ? 'bg-orange-500' : 'bg-blue-500'
-                  }`} />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-700">{alert.message}</p>
-                    <button className="text-[10px] font-bold text-[var(--brand)] uppercase tracking-wider mt-1 hover:underline">
-                      Review Now
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Employees */}
-        <Card className="border-slate-200/60">
-          <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-4">
-            <CardTitle>Recent Onboarding</CardTitle>
-            <button className="text-xs font-bold text-[var(--brand)] flex items-center gap-1 hover:underline">
+            <Link to="/departments" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
               View All <ArrowRight className="w-3 h-3" />
-            </button>
+            </Link>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y divide-slate-100">
-              {RECENT_EMPLOYEES.map((emp, i) => (
-                <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center">
-                      {emp.name.charAt(0)}
+            {departments.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">No departments found.</div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {departments.slice(0, 4).map((dept) => (
+                  <div key={dept.id} className="p-3 flex items-center justify-between hover:bg-slate-50/70 transition-colors text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 font-bold text-[11px] flex items-center justify-center">
+                        {dept.code}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900">{dept.name}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-sm font-bold text-slate-900">{emp.name}</div>
-                      <div className="text-xs text-slate-500 font-medium">{emp.position}</div>
-                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      dept.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {dept.isActive ? 'Active' : 'Inactive'}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-1 rounded-full">{emp.date}</span>
-                    <ChevronRight className="w-4 h-4 text-slate-300" />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Leave Distribution */}
-        <Card className="border-slate-200/60">
-          <CardHeader className="border-b border-slate-100 pb-4">
-            <CardTitle>Department Distribution</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              {[
-                { name: 'Engineering', count: 45, width: '45%', color: 'bg-blue-500' },
-                { name: 'Sales', count: 32, width: '32%', color: 'bg-emerald-500' },
-                { name: 'Marketing', count: 28, width: '28%', color: 'bg-purple-500' },
-                { name: 'HR & Admin', count: 19, width: '19%', color: 'bg-orange-500' },
-              ].map((dept, i) => (
-                <div key={i}>
-                  <div className="flex justify-between text-xs font-bold mb-1.5">
-                    <span className="text-slate-700">{dept.name}</span>
-                    <span className="text-slate-500">{dept.count} Employees</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className={`${dept.color} h-2 rounded-full`} style={{ width: dept.width }} />
-                  </div>
-                </div>
-              ))}
+        {/* Recent Job Positions List */}
+        <Card className="border-slate-200/80 shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-violet-600" />
+              <CardTitle className="text-sm">Job Positions</CardTitle>
             </div>
+            <Link to="/positions" className="text-xs font-bold text-violet-600 hover:text-violet-700 flex items-center gap-1">
+              View All <ArrowRight className="w-3 h-3" />
+            </Link>
+          </CardHeader>
+          <CardContent className="p-0">
+            {positions.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">No job positions found.</div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {positions.slice(0, 4).map((pos) => (
+                  <div key={pos.id} className="p-3 flex items-center justify-between hover:bg-slate-50/70 transition-colors text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-violet-50 text-violet-700 font-bold flex items-center justify-center">
+                        <Briefcase className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 truncate max-w-[130px]">{pos.title}</div>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      pos.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {pos.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Working Schedules List */}
+        <Card className="border-slate-200/80 shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-amber-600" />
+              <CardTitle className="text-sm">Working Schedules</CardTitle>
+            </div>
+            <Link to="/schedules" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">
+              View All <ArrowRight className="w-3 h-3" />
+            </Link>
+          </CardHeader>
+          <CardContent className="p-0">
+            {schedules.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">No schedules found.</div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {schedules.slice(0, 4).map((sched) => (
+                  <div key={sched.id} className="p-3 flex items-center justify-between hover:bg-slate-50/70 transition-colors text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 font-bold flex items-center justify-center">
+                        <Clock className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 truncate max-w-[130px]">{sched.name}</div>
+                        <div className="text-[10px] text-slate-400">{sched.weeklyHours} hrs/wk</div>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      sched.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {sched.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

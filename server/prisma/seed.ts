@@ -70,7 +70,7 @@ async function main() {
     { title: 'Operations Lead', description: 'Coordinates workflow efficiency and resource allocation.', is_active: true },
   ];
 
-  for (const pos of initialPositions) {
+    for (const pos of initialPositions) {
     await prisma.job_positions.upsert({
       where: { title: pos.title },
       update: { description: pos.description, is_active: pos.is_active },
@@ -78,6 +78,78 @@ async function main() {
     });
   }
   console.log(`Seeded ${initialPositions.length} job positions.`);
+
+  // 5. Seed initial working schedules
+  const existingSchedule = await prisma.working_schedules.findFirst({
+    where: { name: 'Standard 40h (Mon-Fri 09:00 - 18:00)' },
+  });
+
+  if (!existingSchedule) {
+    const s1 = await prisma.working_schedules.create({
+      data: {
+        name: 'Standard 40h (Mon-Fri 09:00 - 18:00)',
+        schedule_type: 'FIXED',
+        weekly_hours: 40.0,
+        is_active: true,
+      },
+    });
+
+    for (let day = 1; day <= 5; day++) {
+      await prisma.schedule_days.create({
+        data: {
+          schedule_id: s1.id,
+          day_of_week: day,
+          start_time: new Date(Date.UTC(1970, 0, 1, 9, 0, 0)),
+          end_time: new Date(Date.UTC(1970, 0, 1, 18, 0, 0)),
+          break_minutes: 60,
+        },
+      });
+    }
+
+    const s2 = await prisma.working_schedules.create({
+      data: {
+        name: 'Flexible 35h (Mon-Fri)',
+        schedule_type: 'FLEXIBLE',
+        weekly_hours: 35.0,
+        is_active: true,
+      },
+    });
+
+    for (let day = 1; day <= 5; day++) {
+      await prisma.schedule_days.create({
+        data: {
+          schedule_id: s2.id,
+          day_of_week: day,
+          start_time: new Date(Date.UTC(1970, 0, 1, 10, 0, 0)),
+          end_time: new Date(Date.UTC(1970, 0, 1, 18, 0, 0)),
+          break_minutes: 60,
+        },
+      });
+    }
+
+    const s3 = await prisma.working_schedules.create({
+      data: {
+        name: 'Part-Time 20h (Mon-Fri Mornings)',
+        schedule_type: 'FIXED',
+        weekly_hours: 20.0,
+        is_active: true,
+      },
+    });
+
+    for (let day = 1; day <= 5; day++) {
+      await prisma.schedule_days.create({
+        data: {
+          schedule_id: s3.id,
+          day_of_week: day,
+          start_time: new Date(Date.UTC(1970, 0, 1, 9, 0, 0)),
+          end_time: new Date(Date.UTC(1970, 0, 1, 13, 0, 0)),
+          break_minutes: 0,
+        },
+      });
+    }
+
+    console.log('Seeded 3 working schedules with days.');
+  }
 }
 
 main()

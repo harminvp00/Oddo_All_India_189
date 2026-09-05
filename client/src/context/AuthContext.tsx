@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initial application setup & token / session restoration
   useEffect(() => {
     const timer = setTimeout(() => {
-      const saved = localStorage.getItem('hackathon_user');
+      const saved = localStorage.getItem('peoplepay_user');
       if (!localStorage.getItem('token')) {
         localStorage.setItem('token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEiLCJlbWFpbCI6ImFkbWluQHBlb3BsZXBheTM2MC5jb20iLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3ODg1OTkwMjAsImV4cCI6MTc5MTE5MTAyMH0.k9jTZyarOa-it_B_JaoKTNudW617EpqYrXqj_rUrh7g');
       }
@@ -44,9 +44,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!initializing) {
       if (user) {
-        localStorage.setItem('hackathon_user', JSON.stringify(user));
+        localStorage.setItem('peoplepay_user', JSON.stringify(user));
       } else {
-        localStorage.removeItem('hackathon_user');
+        localStorage.removeItem('peoplepay_user');
       }
     }
   }, [user, initializing]);
@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
       }}
     >
-      {initializing ? <SplashScreen message="Preparing hackathon workspace..." /> : children}
+      {initializing ? <SplashScreen message="Preparing PeoplePay 360..." /> : children}
     </AuthContext.Provider>
   );
 };

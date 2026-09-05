@@ -24,8 +24,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu }) => {
         </button>
 
         <div className="flex items-center gap-2">
-          <span className="font-bold text-slate-900 text-sm tracking-tight hidden sm:inline-block">
-            {brand.shortName} Workspace
+          <span className="font-extrabold text-slate-900 text-sm tracking-tight hidden sm:inline-block">
+            {brand.name}
           </span>
         </div>
       </div>

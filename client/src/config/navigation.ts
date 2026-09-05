@@ -2,37 +2,20 @@ import type { NavItem } from '../types';
 import React from 'react';
 import { 
   LayoutDashboard, 
-  Users, 
-  FileText, 
-  CalendarDays, 
-  CalendarClock, 
-  Banknote, 
-  Calculator, 
-  FileSpreadsheet, 
-  Settings2,
   Building2,
   Briefcase,
-  PieChart,
-  UserCircle
+  CalendarDays,
 } from 'lucide-react';
 
+/**
+ * Main Navigation Items
+ * Displaying modules with backend implementations (Departments, Job Positions, Working Schedules).
+ */
 export const mainNavItems: NavItem[] = [
   {
     label: 'Dashboard',
     path: '/dashboard',
     icon: React.createElement(LayoutDashboard, { className: "w-4 h-4" }),
-  },
-  {
-    label: 'Employees',
-    path: '/employees',
-    icon: React.createElement(Users, { className: "w-4 h-4" }),
-    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER']
-  },
-  {
-    label: 'My Profile',
-    path: '/employees/me',
-    icon: React.createElement(UserCircle, { className: "w-4 h-4" }),
-    roles: ['EMPLOYEE']
   },
   {
     label: 'Departments',
@@ -45,6 +28,26 @@ export const mainNavItems: NavItem[] = [
     path: '/positions',
     icon: React.createElement(Briefcase, { className: "w-4 h-4" }),
     roles: ['ADMIN', 'HR_MANAGER']
+  },
+  {
+    label: 'Working Schedules',
+    path: '/schedules',
+    icon: React.createElement(CalendarDays, { className: "w-4 h-4" }),
+    roles: ['ADMIN', 'HR_MANAGER']
+  },
+  /* 
+  // --- UNIMPLEMENTED BACKEND MODULES (UNCOMMENT AS BACKEND GETS BUILT) ---
+  {
+    label: 'Employees',
+    path: '/employees',
+    icon: React.createElement(Users, { className: "w-4 h-4" }),
+    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER']
+  },
+  {
+    label: 'My Profile',
+    path: '/employees/me',
+    icon: React.createElement(UserCircle, { className: "w-4 h-4" }),
+    roles: ['EMPLOYEE']
   },
   {
     label: 'Contracts',
@@ -108,6 +111,7 @@ export const mainNavItems: NavItem[] = [
     icon: React.createElement(Settings2, { className: "w-4 h-4" }),
     roles: ['ADMIN']
   }
+  */
 ];
 
 export const sampleNavItems: NavItem[] = [];

@@ -93,9 +93,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           {(!collapsed || isMobile) && (
             <div className="flex flex-col">
-              <span className="font-extrabold text-slate-900 text-sm tracking-tight leading-none">{brand.shortName}</span>
-              <span className="text-[10px] text-blue-600 uppercase tracking-widest font-mono mt-1 font-bold">
-                Workspace
+              <span className="font-extrabold text-slate-900 text-sm tracking-tight leading-none">{brand.name}</span>
+              <span className="text-[10px] text-indigo-600 uppercase tracking-widest font-mono mt-1 font-bold">
+                HR & Payroll
               </span>
             </div>
           )}
