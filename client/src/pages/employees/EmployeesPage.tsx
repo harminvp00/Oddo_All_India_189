@@ -251,7 +251,6 @@ export const EmployeesPage: React.FC = () => {
               variant="primary"
               size="sm"
               leftIcon={<Plus className="w-4 h-4" />}
-              className="bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-200 font-bold text-xs"
             >
               Add Employee
             </Button>

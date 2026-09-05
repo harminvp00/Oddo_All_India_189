@@ -351,7 +351,6 @@ export const UsersPage: React.FC = () => {
               size="sm"
               onClick={handleOpenAddModal}
               leftIcon={<UserPlus className="w-4 h-4" />}
-              className="bg-indigo-600 hover:bg-indigo-700 shadow-sm"
             >
               Add New User
             </Button>
@@ -656,7 +655,6 @@ export const UsersPage: React.FC = () => {
               type="submit"
               variant="primary"
               isLoading={formSubmitting}
-              className="bg-indigo-600 hover:bg-indigo-700"
             >
               Create Account
             </Button>
@@ -720,7 +718,6 @@ export const UsersPage: React.FC = () => {
               type="submit"
               variant="primary"
               isLoading={formSubmitting}
-              className="bg-indigo-600 hover:bg-indigo-700"
             >
               Save Changes
             </Button>

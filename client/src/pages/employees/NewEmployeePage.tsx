@@ -456,7 +456,7 @@ export const NewEmployeePage: React.FC = () => {
               size="lg"
               disabled={submitting}
               leftIcon={submitting ? <Spinner size="sm" /> : <Save className="w-4 h-4" />}
-              className="bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-200 font-bold text-sm px-6"
+              className="font-bold text-sm px-6"
             >
               {submitting ? 'Saving Employee...' : 'Save & Onboard Employee'}
             </Button>
