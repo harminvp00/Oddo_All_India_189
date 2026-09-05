@@ -5,3 +5,5 @@ node_modules
 .env
 /server/src/test
 db.sql
+server/prisma/migrations
+server/src/generated
