@@ -351,7 +351,7 @@ export const ContractModal: React.FC<ContractModalProps> = ({
             <Input
               label="MONTHLY WAGE AMOUNT (₹ INR)"
               type="number"
-              min="1"
+              min="10000"
               step="0.01"
               required
               value={wage}

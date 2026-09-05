@@ -88,7 +88,53 @@ export const AttendancePage: React.FC = () => {
     return user?.role === 'ADMIN' || user?.role === 'HR_MANAGER' || user?.role === 'HR_PAYROLL_MANAGER';
   }, [user?.role]);
 
-  // Load attendance data from backend
+  // Derive today's string (YYYY-MM-DD)
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  const [userTodayRecord, setUserTodayRecord] = useState<AttendanceRecord | null>(() => {
+    if (!user?.employeeId) return null;
+    try {
+      const cached = localStorage.getItem(`peoplepay_attendance_${user.employeeId}_${todayStr}`);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return null;
+  });
+
+  const saveUserTodayRecord = useCallback((rec: AttendanceRecord | null) => {
+    setUserTodayRecord(rec);
+    if (user?.employeeId && rec) {
+      try {
+        localStorage.setItem(`peoplepay_attendance_${user.employeeId}_${todayStr}`, JSON.stringify(rec));
+      } catch {}
+    }
+  }, [user?.employeeId, todayStr]);
+
+  // Fetch logged-in user's today attendance independently of table filters
+  const fetchUserTodayAttendance = useCallback(async () => {
+    if (!user?.employeeId) return;
+    try {
+      const res = await attendanceService.getAttendanceList({
+        employeeId: String(user.employeeId),
+        startDate: todayStr,
+        endDate: todayStr,
+        limit: 1,
+      });
+      if (res.items && res.items.length > 0) {
+        saveUserTodayRecord(res.items[0]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user today attendance:', err);
+    }
+  }, [user?.employeeId, todayStr, saveUserTodayRecord]);
+
+  useEffect(() => {
+    fetchUserTodayAttendance();
+  }, [fetchUserTodayAttendance]);
+
+  // Load attendance data from backend for table display
   const loadAttendance = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
@@ -105,6 +151,18 @@ export const AttendancePage: React.FC = () => {
       setRecords(res.items || []);
       setTotalPages(res.meta.totalPages || 1);
       setTotalCount(res.meta.total || 0);
+
+      // If the returned list contains today's record for this user, keep userTodayRecord synchronized
+      if (user?.employeeId) {
+        const found = (res.items || []).find((r) => {
+          const matchEmp = String(r.employeeId) === String(user.employeeId);
+          const recordDate = r.attendanceDate.split('T')[0];
+          return matchEmp && recordDate === todayStr;
+        });
+        if (found) {
+          saveUserTodayRecord(found);
+        }
+      }
     } catch (err: any) {
       console.error('Failed to fetch attendance records:', err);
       setAlertInfo({
@@ -115,26 +173,24 @@ export const AttendancePage: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [page, statusFilter, startDate, endDate]);
+  }, [page, statusFilter, startDate, endDate, user?.employeeId, todayStr, saveUserTodayRecord]);
 
   useEffect(() => {
     loadAttendance();
   }, [loadAttendance]);
 
-  // Derive today's record for currently logged-in user
-  const todayStr = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  }, []);
-
+  // Derive today's record for currently logged-in user (independent of table filters)
   const todayUserRecord = useMemo(() => {
+    if (userTodayRecord) return userTodayRecord;
     if (!user?.employeeId) return null;
-    return records.find((r) => {
-      const matchEmp = String(r.employeeId) === String(user.employeeId);
-      const recordDate = r.attendanceDate.split('T')[0];
-      return matchEmp && recordDate === todayStr;
-    });
-  }, [records, user?.employeeId, todayStr]);
+    return (
+      records.find((r) => {
+        const matchEmp = String(r.employeeId) === String(user.employeeId);
+        const recordDate = r.attendanceDate.split('T')[0];
+        return matchEmp && recordDate === todayStr;
+      }) || null
+    );
+  }, [userTodayRecord, records, user?.employeeId, todayStr]);
 
   // Elapsed time for active shift
   const activeShiftElapsed = useMemo(() => {
@@ -147,12 +203,21 @@ export const AttendancePage: React.FC = () => {
     return `${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
   }, [todayUserRecord, currentTime]);
 
-  // Handle Punch In (Check-in)
+  // Handle Punch In (Check-in) with frontend validation
   const handleCheckIn = async () => {
+    if (todayUserRecord?.checkIn) {
+      setAlertInfo({
+        type: 'warning',
+        message: 'You have already punched in for today.',
+      });
+      return;
+    }
+
     setPunchLoading(true);
     setAlertInfo(null);
     try {
       const record = await attendanceService.checkIn();
+      saveUserTodayRecord(record);
       setAlertInfo({
         type: 'success',
         message: `Check-in recorded successfully at ${formatTime(record.checkIn || new Date().toISOString())}!`,
@@ -169,12 +234,28 @@ export const AttendancePage: React.FC = () => {
     }
   };
 
-  // Handle Punch Out (Check-out)
+  // Handle Punch Out (Check-out) with frontend validation
   const handleCheckOut = async () => {
+    if (!todayUserRecord?.checkIn) {
+      setAlertInfo({
+        type: 'warning',
+        message: 'You must check in before checking out.',
+      });
+      return;
+    }
+    if (todayUserRecord?.checkOut) {
+      setAlertInfo({
+        type: 'warning',
+        message: 'Shift already completed. You have already checked out for today.',
+      });
+      return;
+    }
+
     setPunchLoading(true);
     setAlertInfo(null);
     try {
       const record = await attendanceService.checkOut();
+      saveUserTodayRecord(record);
       setAlertInfo({
         type: 'success',
         message: `Check-out recorded successfully! Worked: ${record.workedHours} hrs, Overtime: ${record.overtimeHours} hrs.`,
@@ -251,7 +332,7 @@ export const AttendancePage: React.FC = () => {
       });
 
       setCorrectingRecord(null);
-      await loadAttendance(true);
+      await Promise.all([loadAttendance(true), fetchUserTodayAttendance()]);
     } catch (err: any) {
       console.error('Failed to correct attendance:', err);
       setCorrectionError(err?.response?.data?.message || err?.message || 'Failed to submit correction.');
