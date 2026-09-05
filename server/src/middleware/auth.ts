@@ -88,7 +88,7 @@ export const authenticate = async (
 // Backwards-compatible alias for both teammates and existing code
 export const authenticateToken = authenticate;
 
-export const requireRole = (allowedRoles: string[]) => {
+export const requireRole = (allowedRoles: (AuthenticatedUser['role'] | string)[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       sendError(res, 'UNAUTHORIZED', 'Authentication required', 401);
