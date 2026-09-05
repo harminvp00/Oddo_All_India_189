@@ -269,7 +269,7 @@ export class EmployeeService {
       user_id: linkedUserId,
       bank_account_name: input.bankAccountName ?? null,
       bank_account_number: input.bankAccountNumber ?? null,
-      bankName: input.bankName ?? null,
+      bank_name: input.bankName ?? null,
       ifsc_code: input.ifscCode ?? null,
     } as any);
 
