@@ -146,7 +146,7 @@ export const NewEmployeePage: React.FC = () => {
       const payload: CreateEmployeeDTO = {
         ...formData,
         employeeCode: formData.employeeCode?.trim() || undefined,
-        email: formData.email?.trim() || undefined,
+        email: formData.email?.trim() || `${formData.firstName.toLowerCase()}.${formData.lastName.toLowerCase()}@peoplepay360.com`,
         phone: formData.phone?.trim() || undefined,
         dateOfBirth: formData.dateOfBirth || undefined,
         departmentId: formData.departmentId || undefined,

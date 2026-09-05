@@ -127,7 +127,7 @@ export const SchedulesPage: React.FC = () => {
       if (res.success) {
         let items = res.data;
         if (typeFilter !== 'all') {
-          items = items.filter((s) => s.scheduleType === typeFilter);
+          items = items.filter((s: WorkingSchedule) => s.scheduleType === typeFilter);
         }
         setSchedules(items);
         if (res.meta) {
@@ -229,8 +229,9 @@ export const SchedulesPage: React.FC = () => {
     try {
       // Fetch complete schedule days
       const detail = await ScheduleService.getScheduleById(sched.id);
-      if (detail.success && detail.data.scheduleDays) {
-        const daysMap = new Map(detail.data.scheduleDays.map((d) => [d.dayOfWeek, d]));
+      const days = (detail.data?.scheduleDays || detail.scheduleDays || []) as any[];
+      if (days.length > 0) {
+        const daysMap = new Map(days.map((d: any) => [d.dayOfWeek, d]));
         const updatedDays = DAYS_OF_WEEK.map((dw) => {
           const matched = daysMap.get(dw.day);
           return {
@@ -374,10 +375,10 @@ export const SchedulesPage: React.FC = () => {
     setIsDeleting(true);
     try {
       const res = await ScheduleService.deleteSchedule(scheduleToDelete.id);
-      if (res.success) {
+      if (res) {
         setToastMessage({
           type: 'success',
-          text: res.data.message || `Schedule "${scheduleToDelete.name}" processed successfully.`,
+          text: `Schedule "${scheduleToDelete.name}" processed successfully.`,
         });
         setScheduleToDelete(null);
         fetchSchedules(true);

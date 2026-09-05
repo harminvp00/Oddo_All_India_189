@@ -1,85 +1,136 @@
-import { api } from './api';
+import { mockDB } from './mockDatabase';
+import { businessLogic } from './businessLogicEngine';
 import type {
   WorkingSchedule,
   CreateWorkingScheduleDTO,
   UpdateWorkingScheduleDTO,
   WorkingScheduleFilterParams,
-  ApiResponse,
+  PaginationMeta,
 } from '../types';
 
-export const ScheduleService = {
-  /**
-   * Fetch paginated list of working schedules with search and status filters
-   */
-  async listSchedules(params?: WorkingScheduleFilterParams): Promise<ApiResponse<WorkingSchedule[]>> {
-    const query = new URLSearchParams();
-    if (params?.search) query.append('search', params.search);
-    if (params?.isActive !== undefined && params.isActive !== 'all') {
-      query.append('isActive', params.isActive);
-    }
-    if (params?.page) query.append('page', params.page.toString());
-    if (params?.limit) query.append('limit', params.limit.toString());
+export const scheduleService = {
+  createSchedule: async (data: CreateWorkingScheduleDTO): Promise<any> => {
+    const rawDays = data.scheduleDays || data.days || [];
+    const normalizedDays = rawDays.map(d => ({
+      dayOfWeek: Number(d.dayOfWeek),
+      startTime: d.startTime || '09:00',
+      endTime: d.endTime || '18:00',
+      breakMinutes: d.breakMinutes || ((d.breakHours || 0) * 60) || 60,
+      breakHours: (d.breakMinutes ? d.breakMinutes / 60 : d.breakHours) || 1.0,
+      isWorking: d.isWorking !== undefined ? d.isWorking : true,
+    }));
 
-    const queryString = query.toString();
-    const endpoint = `/working-schedules${queryString ? `?${queryString}` : ''}`;
-    return api.get<ApiResponse<WorkingSchedule[]>>(endpoint);
-  },
+    const calculatedWeekly = businessLogic.calculateWeeklyHours(normalizedDays);
 
-  /**
-   * Get single working schedule details by ID (including schedule days)
-   */
-  async getScheduleById(id: string): Promise<ApiResponse<WorkingSchedule>> {
-    return api.get<ApiResponse<WorkingSchedule>>(`/working-schedules/${id}`);
-  },
+    const newSchedule: WorkingSchedule = {
+      id: `sched-${Date.now()}`,
+      name: data.name,
+      scheduleType: data.scheduleType || 'FIXED',
+      weeklyHours: calculatedWeekly,
+      description: data.description || '',
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      scheduleDays: normalizedDays,
+      days: normalizedDays,
+    };
 
-  /**
-   * Create a new working schedule
-   */
-  async createSchedule(data: CreateWorkingScheduleDTO): Promise<ApiResponse<WorkingSchedule>> {
-    return api.post<ApiResponse<WorkingSchedule>>('/working-schedules', {
-      name: data.name.trim(),
-      scheduleType: data.scheduleType ?? 'FIXED',
-      isActive: data.isActive ?? true,
-      scheduleDays: data.scheduleDays.map((d) => ({
-        dayOfWeek: d.dayOfWeek,
-        startTime: d.startTime || null,
-        endTime: d.endTime || null,
-        breakMinutes: d.breakMinutes || 0,
-      })),
+    mockDB.updateState(draft => {
+      draft.workingSchedules.push(newSchedule);
     });
+
+    return { success: true, data: newSchedule };
   },
 
-  /**
-   * Update working schedule details
-   */
-  async updateSchedule(id: string, data: UpdateWorkingScheduleDTO): Promise<ApiResponse<WorkingSchedule>> {
-    const payload: UpdateWorkingScheduleDTO = {};
-    if (data.name !== undefined) payload.name = data.name.trim();
-    if (data.scheduleType !== undefined) payload.scheduleType = data.scheduleType;
-    if (data.isActive !== undefined) payload.isActive = data.isActive;
-    if (data.scheduleDays !== undefined) {
-      payload.scheduleDays = data.scheduleDays.map((d) => ({
-        dayOfWeek: d.dayOfWeek,
-        startTime: d.startTime || null,
-        endTime: d.endTime || null,
-        breakMinutes: d.breakMinutes || 0,
-      }));
+  listSchedules: async (
+    params: WorkingScheduleFilterParams = {}
+  ): Promise<any> => {
+    const state = mockDB.getState();
+    let result = state.workingSchedules;
+
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      result = result.filter(s => s.name.toLowerCase().includes(q));
+    }
+    if (params.scheduleType && params.scheduleType !== 'all') {
+      result = result.filter(s => s.scheduleType === params.scheduleType);
+    }
+    if (params.isActive !== undefined && params.isActive !== 'all') {
+      const active = params.isActive === 'true';
+      result = result.filter(s => s.isActive === active);
     }
 
-    return api.patch<ApiResponse<WorkingSchedule>>(`/working-schedules/${id}`, payload);
+    const page = params.page || 1;
+    const limit = params.limit || 50;
+    const total = result.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const startIndex = (page - 1) * limit;
+    const paginated = result.slice(startIndex, startIndex + limit);
+
+    return {
+      success: true,
+      data: paginated,
+      items: paginated,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
   },
 
-  /**
-   * Toggle working schedule active status
-   */
-  async toggleScheduleStatus(id: string, currentStatus: boolean): Promise<ApiResponse<WorkingSchedule>> {
-    return this.updateSchedule(id, { isActive: !currentStatus });
+  getScheduleById: async (id: string): Promise<any> => {
+    const state = mockDB.getState();
+    const s = state.workingSchedules.find(item => item.id === id);
+    if (!s) throw new Error('Working schedule not found');
+    return { success: true, data: s };
   },
 
-  /**
-   * Delete or archive working schedule
-   */
-  async deleteSchedule(id: string): Promise<ApiResponse<{ id: string; action: 'DEACTIVATED' | 'DELETED'; message: string }>> {
-    return api.delete<ApiResponse<{ id: string; action: 'DEACTIVATED' | 'DELETED'; message: string }>>(`/working-schedules/${id}`);
+  updateSchedule: async (id: string, data: UpdateWorkingScheduleDTO): Promise<any> => {
+    let updated: WorkingSchedule | null = null;
+    mockDB.updateState(draft => {
+      const s = draft.workingSchedules.find(item => item.id === id);
+      if (s) {
+        Object.assign(s, data);
+        const rawDays = data.scheduleDays || data.days;
+        if (rawDays) {
+          const normalizedDays = rawDays.map(d => ({
+            dayOfWeek: Number(d.dayOfWeek),
+            startTime: d.startTime || '09:00',
+            endTime: d.endTime || '18:00',
+            breakMinutes: d.breakMinutes || ((d.breakHours || 0) * 60) || 60,
+            breakHours: (d.breakMinutes ? d.breakMinutes / 60 : d.breakHours) || 1.0,
+            isWorking: d.isWorking !== undefined ? d.isWorking : true,
+          }));
+          s.scheduleDays = normalizedDays;
+          s.days = normalizedDays;
+          s.weeklyHours = businessLogic.calculateWeeklyHours(normalizedDays);
+        }
+        updated = s;
+      }
+    });
+    if (!updated) throw new Error('Schedule not found');
+    return { success: true, data: updated };
+  },
+
+  toggleScheduleStatus: async (id: string, isActive?: boolean): Promise<any> => {
+    let updated: WorkingSchedule | null = null;
+    mockDB.updateState(draft => {
+      const s = draft.workingSchedules.find(item => item.id === id);
+      if (s) {
+        s.isActive = isActive !== undefined ? isActive : !s.isActive;
+        updated = s;
+      }
+    });
+    if (!updated) throw new Error('Schedule not found');
+    return { success: true, data: updated };
+  },
+
+  deleteSchedule: async (id: string): Promise<any> => {
+    mockDB.updateState(draft => {
+      draft.workingSchedules = draft.workingSchedules.filter(s => s.id !== id);
+    });
+    return { success: true, data: null };
   },
 };
+
+export const ScheduleService = scheduleService;

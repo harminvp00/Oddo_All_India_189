@@ -1,71 +1,106 @@
-import { api } from './api';
+import { mockDB } from './mockDatabase';
 import type {
   JobPosition,
   CreateJobPositionDTO,
   UpdateJobPositionDTO,
   JobPositionFilterParams,
-  ApiResponse,
+  PaginationMeta,
 } from '../types';
 
-export const PositionService = {
-  /**
-   * Fetch paginated list of job positions with search & status filters
-   */
-  async listPositions(params?: JobPositionFilterParams): Promise<ApiResponse<JobPosition[]>> {
-    const query = new URLSearchParams();
-    if (params?.search) query.append('search', params.search);
-    if (params?.isActive !== undefined && params.isActive !== 'all') {
-      query.append('isActive', params.isActive);
-    }
-    if (params?.page) query.append('page', params.page.toString());
-    if (params?.limit) query.append('limit', params.limit.toString());
-
-    const queryString = query.toString();
-    const endpoint = `/job-positions${queryString ? `?${queryString}` : ''}`;
-    return api.get<ApiResponse<JobPosition[]>>(endpoint);
-  },
-
-  /**
-   * Get single job position details by ID
-   */
-  async getPositionById(id: string): Promise<ApiResponse<JobPosition>> {
-    return api.get<ApiResponse<JobPosition>>(`/job-positions/${id}`);
-  },
-
-  /**
-   * Create a new job position
-   */
-  async createPosition(data: CreateJobPositionDTO): Promise<ApiResponse<JobPosition>> {
-    return api.post<ApiResponse<JobPosition>>('/job-positions', {
-      title: data.title.trim(),
-      description: data.description?.trim() || null,
-      isActive: data.isActive ?? true,
+export const positionService = {
+  createPosition: async (data: CreateJobPositionDTO): Promise<any> => {
+    const newPos: JobPosition = {
+      id: `pos-${Date.now()}`,
+      title: data.title,
+      description: data.description || '',
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      employeeCount: 0,
+      contractCount: 0,
+    };
+    mockDB.updateState(draft => {
+      draft.jobPositions.push(newPos);
     });
+    return { success: true, data: newPos };
   },
 
-  /**
-   * Update job position details
-   */
-  async updatePosition(id: string, data: UpdateJobPositionDTO): Promise<ApiResponse<JobPosition>> {
-    const payload: UpdateJobPositionDTO = {};
-    if (data.title !== undefined) payload.title = data.title.trim();
-    if (data.description !== undefined) payload.description = data.description ? data.description.trim() : '';
-    if (data.isActive !== undefined) payload.isActive = data.isActive;
+  listPositions: async (
+    params: JobPositionFilterParams = {}
+  ): Promise<any> => {
+    const state = mockDB.getState();
+    let result = state.jobPositions.map(p => ({
+      ...p,
+      employeeCount: state.employees.filter(e => e.positionId === p.id).length,
+      contractCount: state.contracts.filter(c => c.positionId === p.id).length,
+    }));
 
-    return api.patch<ApiResponse<JobPosition>>(`/job-positions/${id}`, payload);
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      result = result.filter(p => p.title.toLowerCase().includes(q));
+    }
+    if (params.isActive !== undefined && params.isActive !== 'all') {
+      const active = params.isActive === 'true';
+      result = result.filter(p => p.isActive === active);
+    }
+
+    const page = params.page || 1;
+    const limit = params.limit || 50;
+    const total = result.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const startIndex = (page - 1) * limit;
+    const paginated = result.slice(startIndex, startIndex + limit);
+
+    return {
+      success: true,
+      data: paginated,
+      items: paginated,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
   },
 
-  /**
-   * Toggle job position active status
-   */
-  async togglePositionStatus(id: string, currentStatus: boolean): Promise<ApiResponse<JobPosition>> {
-    return this.updatePosition(id, { isActive: !currentStatus });
+  getPositionById: async (id: string): Promise<any> => {
+    const state = mockDB.getState();
+    const p = state.jobPositions.find(item => item.id === id);
+    if (!p) throw new Error('Position not found');
+    return { success: true, data: p };
   },
 
-  /**
-   * Delete or archive job position
-   */
-  async deletePosition(id: string): Promise<ApiResponse<{ id: string; action: 'DEACTIVATED' | 'DELETED'; message: string }>> {
-    return api.delete<ApiResponse<{ id: string; action: 'DEACTIVATED' | 'DELETED'; message: string }>>(`/job-positions/${id}`);
+  updatePosition: async (id: string, data: UpdateJobPositionDTO): Promise<any> => {
+    let updated: JobPosition | null = null;
+    mockDB.updateState(draft => {
+      const p = draft.jobPositions.find(item => item.id === id);
+      if (p) {
+        Object.assign(p, data);
+        updated = p;
+      }
+    });
+    if (!updated) throw new Error('Position not found');
+    return { success: true, data: updated };
+  },
+
+  togglePositionStatus: async (id: string, isActive?: boolean): Promise<any> => {
+    let updated: JobPosition | null = null;
+    mockDB.updateState(draft => {
+      const p = draft.jobPositions.find(item => item.id === id);
+      if (p) {
+        p.isActive = isActive !== undefined ? isActive : !p.isActive;
+        updated = p;
+      }
+    });
+    if (!updated) throw new Error('Position not found');
+    return { success: true, data: updated };
+  },
+
+  deletePosition: async (id: string): Promise<any> => {
+    mockDB.updateState(draft => {
+      draft.jobPositions = draft.jobPositions.filter(p => p.id !== id);
+    });
+    return { success: true, data: null };
   },
 };
+
+export const PositionService = positionService;
