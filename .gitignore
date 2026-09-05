@@ -4,5 +4,4 @@ node_modules
 /trash
 .env
 /server/src/test
-
-
+db.sql

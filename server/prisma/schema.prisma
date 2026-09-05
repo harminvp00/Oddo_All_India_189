@@ -8,32 +8,445 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model payments {
-  id                  Int       @id @default(autoincrement())
-  user_id             Int?
-  product_id          Int?
-  amount              Int
-  currency            String?   @default("INR") @db.VarChar(10)
-  razorpay_order_id   String?   @db.VarChar(255)
-  razorpay_payment_id String?   @db.VarChar(255)
-  status              String?   @default("created") @db.VarChar(30)
-  created_at          DateTime? @default(now()) @db.Timestamp(6)
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model attendance {
+  id              BigInt            @id @default(autoincrement())
+  employee_id     BigInt
+  attendance_date DateTime          @db.Date
+  check_in        DateTime?         @db.Timestamptz(6)
+  check_out       DateTime?         @db.Timestamptz(6)
+  worked_hours    Decimal           @default(0) @db.Decimal(7, 2)
+  overtime_hours  Decimal           @default(0) @db.Decimal(7, 2)
+  status          attendance_status @default(PRESENT)
+  correction_note String?
+  corrected_by    BigInt?
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  users           users?            @relation(fields: [corrected_by], references: [id], onUpdate: NoAction)
+  employees       employees         @relation(fields: [employee_id], references: [id], onUpdate: NoAction)
+
+  @@unique([employee_id, attendance_date])
+  @@index([employee_id, attendance_date(sort: Desc)], map: "idx_attendance_employee_date")
 }
 
-model products {
-  id          Int       @id @default(autoincrement())
-  name        String    @db.VarChar(150)
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model auth_identities {
+  id               BigInt        @id @default(autoincrement())
+  user_id          BigInt
+  provider         auth_provider @default(GOOGLE)
+  provider_subject String        @db.VarChar(255)
+  provider_email   String        @db.VarChar(320)
+  users            users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([provider, provider_subject])
+  @@unique([user_id, provider])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This table contains exclusion constraints and requires additional setup for migrations. Visit https://pris.ly/d/exclusion-constraints for more info.
+model contracts {
+  id                  BigInt             @id @default(autoincrement())
+  employee_id         BigInt
+  contract_number     String             @unique @db.VarChar(40)
+  start_date          DateTime           @db.Date
+  end_date            DateTime?          @db.Date
+  status              contract_status    @default(DRAFT)
+  department_id       BigInt?
+  position_id         BigInt?
+  schedule_id         BigInt?
+  salary_structure_id BigInt
+  wage                Decimal            @db.Decimal(14, 2)
+  currency_code       String             @default("INR") @db.Char(3)
+  created_at          DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime           @default(now()) @db.Timestamptz(6)
+  departments         departments?       @relation(fields: [department_id], references: [id], onUpdate: NoAction)
+  employees           employees          @relation(fields: [employee_id], references: [id], onUpdate: NoAction)
+  job_positions       job_positions?     @relation(fields: [position_id], references: [id], onUpdate: NoAction)
+  salary_structures   salary_structures  @relation(fields: [salary_structure_id], references: [id], onUpdate: NoAction)
+  working_schedules   working_schedules? @relation(fields: [schedule_id], references: [id], onUpdate: NoAction)
+  payslips            payslips[]
+
+  @@unique([id, employee_id])
+  @@index([employee_id, start_date, end_date], map: "idx_contracts_employee_dates")
+}
+
+model departments {
+  id        BigInt      @id @default(autoincrement())
+  name      String      @unique @db.VarChar(100)
+  code      String      @unique @db.VarChar(30)
+  is_active Boolean     @default(true)
+  contracts contracts[]
+  employees employees[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model employees {
+  id                  BigInt              @id @default(autoincrement())
+  employee_code       String              @unique @db.VarChar(30)
+  first_name          String              @db.VarChar(80)
+  last_name           String              @db.VarChar(80)
+  phone               String?             @db.VarChar(30)
+  date_of_birth       DateTime?           @db.Date
+  hire_date           DateTime            @db.Date
+  termination_date    DateTime?           @db.Date
+  employee_type       employee_type       @default(FULL_TIME)
+  employment_status   employment_status   @default(ACTIVE)
+  department_id       BigInt?
+  position_id         BigInt?
+  manager_id          BigInt?
+  schedule_id         BigInt?
+  user_id             BigInt?             @unique
+  bank_account_name   String?             @db.VarChar(120)
+  bank_account_number String?             @db.VarChar(50)
+  bank_name           String?             @db.VarChar(120)
+  ifsc_code           String?             @db.VarChar(20)
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
+  attendance          attendance[]
+  contracts           contracts[]
+  departments         departments?        @relation(fields: [department_id], references: [id], onUpdate: NoAction)
+  employees           employees?          @relation("employeesToemployees", fields: [manager_id], references: [id], onUpdate: NoAction)
+  other_employees     employees[]         @relation("employeesToemployees")
+  job_positions       job_positions?      @relation(fields: [position_id], references: [id], onUpdate: NoAction)
+  working_schedules   working_schedules?  @relation(fields: [schedule_id], references: [id], onUpdate: NoAction)
+  users               users?              @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  leave_allocations   leave_allocations[]
+  leave_requests      leave_requests[]
+  payrun_employees    payrun_employees[]
+
+  @@index([department_id], map: "idx_employees_department")
+  @@index([manager_id], map: "idx_employees_manager")
+}
+
+model job_positions {
+  id          BigInt      @id @default(autoincrement())
+  title       String      @unique @db.VarChar(120)
   description String?
-  price       Int
-  image_url   String?
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  is_active   Boolean     @default(true)
+  contracts   contracts[]
+  employees   employees[]
 }
 
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model leave_allocations {
+  id              BigInt            @id @default(autoincrement())
+  employee_id     BigInt
+  leave_type_id   BigInt
+  valid_from      DateTime          @db.Date
+  valid_to        DateTime          @db.Date
+  allocated_units Decimal           @db.Decimal(10, 2)
+  used_units      Decimal           @default(0) @db.Decimal(10, 2)
+  status          allocation_status @default(DRAFT)
+  approved_by     BigInt?
+  approved_at     DateTime?         @db.Timestamptz(6)
+  users           users?            @relation(fields: [approved_by], references: [id], onUpdate: NoAction)
+  employees       employees         @relation(fields: [employee_id], references: [id], onUpdate: NoAction)
+  leave_types     leave_types       @relation(fields: [leave_type_id], references: [id], onUpdate: NoAction)
+  leave_requests  leave_requests[]
+
+  @@unique([employee_id, leave_type_id, valid_from, valid_to])
+  @@index([employee_id, leave_type_id], map: "idx_leave_allocations_employee")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model leave_requests {
+  id                BigInt               @id @default(autoincrement())
+  employee_id       BigInt
+  leave_type_id     BigInt
+  allocation_id     BigInt?
+  start_date        DateTime             @db.Date
+  end_date          DateTime             @db.Date
+  requested_units   Decimal              @db.Decimal(10, 2)
+  reason            String?
+  status            leave_request_status @default(PENDING)
+  approved_by       BigInt?
+  approved_at       DateTime?            @db.Timestamptz(6)
+  created_at        DateTime             @default(now()) @db.Timestamptz(6)
+  leave_allocations leave_allocations?   @relation(fields: [allocation_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  users             users?               @relation(fields: [approved_by], references: [id], onUpdate: NoAction)
+  employees         employees            @relation(fields: [employee_id], references: [id], onUpdate: NoAction)
+  leave_types       leave_types          @relation(fields: [leave_type_id], references: [id], onUpdate: NoAction)
+
+  @@index([status, start_date], map: "idx_leave_requests_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model leave_types {
+  id                    BigInt              @id @default(autoincrement())
+  name                  String              @unique @db.VarChar(100)
+  code                  String              @unique @db.VarChar(30)
+  unit                  leave_unit          @default(DAY)
+  requires_allocation   Boolean             @default(true)
+  requires_approval     Boolean             @default(true)
+  payroll_deductible    Boolean             @default(false)
+  max_consecutive_units Decimal?            @db.Decimal(8, 2)
+  is_active             Boolean             @default(true)
+  leave_allocations     leave_allocations[]
+  leave_requests        leave_requests[]
+}
+
+model payrun_employees {
+  payrun_id   BigInt
+  employee_id BigInt
+  employees   employees  @relation(fields: [employee_id], references: [id], onUpdate: NoAction)
+  payruns     payruns    @relation(fields: [payrun_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  payslips    payslips[]
+
+  @@id([payrun_id, employee_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payruns {
+  id                  BigInt             @id @default(autoincrement())
+  run_name            String             @db.VarChar(120)
+  salary_structure_id BigInt
+  period_start        DateTime           @db.Date
+  period_end          DateTime           @db.Date
+  status              payrun_status      @default(DRAFT)
+  computed_at         DateTime?          @db.Timestamptz(6)
+  validated_at        DateTime?          @db.Timestamptz(6)
+  paid_at             DateTime?          @db.Timestamptz(6)
+  created_by          BigInt
+  created_at          DateTime           @default(now()) @db.Timestamptz(6)
+  payrun_employees    payrun_employees[]
+  users               users              @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  salary_structures   salary_structures  @relation(fields: [salary_structure_id], references: [id], onUpdate: NoAction)
+
+  @@index([period_start, period_end], map: "idx_payruns_period")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payslip_lines {
+  id             BigInt        @id @default(autoincrement())
+  payslip_id     BigInt
+  salary_rule_id BigInt
+  rule_code      String        @db.VarChar(40)
+  rule_name      String        @db.VarChar(100)
+  category       rule_category
+  sequence_no    Int
+  quantity       Decimal       @default(1) @db.Decimal(12, 4)
+  rate           Decimal?      @db.Decimal(12, 4)
+  amount         Decimal       @db.Decimal(14, 2)
+  payslips       payslips      @relation(fields: [payslip_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  salary_rules   salary_rules  @relation(fields: [salary_rule_id], references: [id], onUpdate: NoAction)
+
+  @@unique([payslip_id, salary_rule_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payslips {
+  id                  BigInt            @id @default(autoincrement())
+  payrun_id           BigInt
+  employee_id         BigInt
+  contract_id         BigInt
+  salary_structure_id BigInt
+  period_start        DateTime          @db.Date
+  period_end          DateTime          @db.Date
+  worked_days         Decimal           @default(0) @db.Decimal(8, 2)
+  gross_amount        Decimal           @default(0) @db.Decimal(14, 2)
+  total_deductions    Decimal           @default(0) @db.Decimal(14, 2)
+  net_amount          Decimal           @default(0) @db.Decimal(14, 2)
+  status              payslip_status    @default(DRAFT)
+  pdf_path            String?
+  sent_at             DateTime?         @db.Timestamptz(6)
+  created_at          DateTime          @default(now()) @db.Timestamptz(6)
+  payslip_lines       payslip_lines[]
+  contracts           contracts         @relation(fields: [contract_id, employee_id], references: [id, employee_id], onUpdate: NoAction)
+  payrun_employees    payrun_employees  @relation(fields: [payrun_id, employee_id], references: [payrun_id, employee_id], onUpdate: NoAction)
+  salary_structures   salary_structures @relation(fields: [salary_structure_id], references: [id], onUpdate: NoAction)
+
+  @@unique([employee_id, period_start, period_end])
+  @@index([employee_id, period_start, period_end], map: "idx_payslips_employee_period")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model salary_rules {
+  id                     BigInt                   @id @default(autoincrement())
+  name                   String                   @db.VarChar(100)
+  code                   String                   @unique @db.VarChar(40)
+  category               rule_category
+  method                 rule_method
+  fixed_amount           Decimal?                 @db.Decimal(14, 2)
+  percentage             Decimal?                 @db.Decimal(7, 4)
+  formula                String?
+  is_active              Boolean                  @default(true)
+  payslip_lines          payslip_lines[]
+  salary_structure_rules salary_structure_rules[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model salary_structure_rules {
+  structure_id      BigInt
+  rule_id           BigInt
+  execution_order   Int
+  salary_rules      salary_rules      @relation(fields: [rule_id], references: [id], onUpdate: NoAction)
+  salary_structures salary_structures @relation(fields: [structure_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([structure_id, rule_id])
+  @@unique([structure_id, execution_order])
+}
+
+model salary_structures {
+  id                     BigInt                   @id @default(autoincrement())
+  name                   String                   @unique @db.VarChar(100)
+  description            String?
+  is_active              Boolean                  @default(true)
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  contracts              contracts[]
+  payruns                payruns[]
+  payslips               payslips[]
+  salary_structure_rules salary_structure_rules[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model schedule_days {
+  id                BigInt            @id @default(autoincrement())
+  schedule_id       BigInt
+  day_of_week       Int               @db.SmallInt
+  start_time        DateTime?         @db.Time(6)
+  end_time          DateTime?         @db.Time(6)
+  break_minutes     Int               @default(0)
+  working_schedules working_schedules @relation(fields: [schedule_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([schedule_id, day_of_week])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model users {
-  id         Int       @id @default(autoincrement())
-  google_id  String    @unique @db.VarChar(255)
-  name       String    @db.VarChar(100)
-  email      String    @unique @db.VarChar(255)
-  avatar_url String?
-  created_at DateTime? @default(now()) @db.Timestamp(6)
+  id                BigInt              @id @default(autoincrement())
+  email             String              @unique @db.VarChar(320)
+  password_hash     String
+  full_name         String              @db.VarChar(120)
+  avatar_url        String?
+  role              user_role           @default(EMPLOYEE)
+  status            user_status         @default(ACTIVE)
+  created_by        BigInt?
+  last_login_at     DateTime?           @db.Timestamptz(6)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  attendance        attendance[]
+  auth_identities   auth_identities[]
+  employees         employees?
+  leave_allocations leave_allocations[]
+  leave_requests    leave_requests[]
+  payruns           payruns[]
+  users             users?              @relation("usersTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  other_users       users[]             @relation("usersTousers")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model working_schedules {
+  id            BigInt          @id @default(autoincrement())
+  name          String          @unique @db.VarChar(100)
+  schedule_type schedule_type   @default(FIXED)
+  weekly_hours  Decimal         @default(0) @db.Decimal(6, 2)
+  is_active     Boolean         @default(true)
+  contracts     contracts[]
+  employees     employees[]
+  schedule_days schedule_days[]
+}
+
+enum allocation_status {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum attendance_status {
+  PRESENT
+  LATE
+  ABSENT
+  HALF_DAY
+  CORRECTED
+}
+
+enum auth_provider {
+  GOOGLE
+}
+
+enum contract_status {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum employee_type {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+  TEMPORARY
+}
+
+enum employment_status {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum leave_request_status {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum leave_unit {
+  DAY
+  HOUR
+}
+
+enum payrun_status {
+  DRAFT
+  PROCESSING
+  COMPUTED
+  VALIDATED
+  PAID
+  CANCELLED
+}
+
+enum payslip_status {
+  DRAFT
+  COMPUTED
+  VALIDATED
+  PAID
+  SENT
+  CANCELLED
+}
+
+enum rule_category {
+  BASIC
+  ALLOWANCE
+  GROSS
+  DEDUCTION
+  CONTRIBUTION
+  NET
+}
+
+enum rule_method {
+  FIXED
+  PERCENTAGE
+  FORMULA
+}
+
+enum schedule_type {
+  FIXED
+  FLEXIBLE
+}
+
+enum user_role {
+  EMPLOYEE
+  HR_MANAGER
+  HR_PAYROLL_USER
+  HR_PAYROLL_MANAGER
+  ADMIN
+}
+
+enum user_status {
+  ACTIVE
+  DISABLED
 }
