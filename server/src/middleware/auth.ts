@@ -1,13 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken, JwtPayload } from '../utils/jwt';
-import { sendError } from '../utils/response';
+import jwt from 'jsonwebtoken';
+import { env } from '../config/env';
 import prisma from '../config/database';
+import { sendError } from '../utils/response';
 
 export interface AuthenticatedUser {
   id: string;
   userId: string;
   email: string;
-  role: string;
+  role: 'EMPLOYEE' | 'HR_MANAGER' | 'HR_PAYROLL_USER' | 'HR_PAYROLL_MANAGER' | 'ADMIN' | string;
   employeeId?: string | null;
 }
 
@@ -30,40 +31,43 @@ export const authenticate = async (
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-    let token: string | undefined;
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
-    } else if (req.cookies && req.cookies.token) {
-      token = req.cookies.token;
-    }
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.split(' ')[1]
+      : req.cookies?.token;
 
     if (!token) {
       sendError(res, 'UNAUTHORIZED', 'Authentication token is required', 401);
       return;
     }
 
-    const decoded = verifyToken(token);
-    const userIdStr = decoded.userId || (decoded as any).id;
+    const decoded = jwt.verify(token, env.JWT_SECRET) as {
+      id?: string;
+      userId?: string;
+      email: string;
+      role: AuthenticatedUser['role'];
+      employeeId?: string | null;
+    };
 
-    if (!userIdStr) {
+    const targetUserId = decoded.id || decoded.userId;
+
+    if (!targetUserId) {
       sendError(res, 'UNAUTHORIZED', 'Invalid token payload', 401);
       return;
     }
 
-    // Check if user still exists and is ACTIVE
+    // Live DB Check: Check if user exists and is ACTIVE
     const user = await prisma.users.findUnique({
-      where: { id: BigInt(userIdStr) },
+      where: { id: BigInt(targetUserId) },
       include: { employees: true },
     });
 
-    if (!user || user.status === 'DISABLED') {
-      sendError(
-        res,
-        user ? 'ACCOUNT_DISABLED' : 'UNAUTHORIZED',
-        user ? 'User account is disabled' : 'User not found',
-        user ? 403 : 401
-      );
+    if (!user) {
+      sendError(res, 'UNAUTHORIZED', 'User not found', 401);
+      return;
+    }
+
+    if (user.status === 'DISABLED') {
+      sendError(res, 'ACCOUNT_DISABLED', 'User account is disabled. Please contact system administrator.', 403);
       return;
     }
 
@@ -71,7 +75,7 @@ export const authenticate = async (
       id: user.id.toString(),
       userId: user.id.toString(),
       email: user.email,
-      role: user.role,
+      role: user.role as AuthenticatedUser['role'],
       employeeId: user.employees?.id ? user.employees.id.toString() : null,
     };
 
@@ -81,9 +85,10 @@ export const authenticate = async (
   }
 };
 
+// Backwards-compatible alias for both teammates and existing code
 export const authenticateToken = authenticate;
 
-export function requireRole(allowedRoles: string[]) {
+export const requireRole = (allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       sendError(res, 'UNAUTHORIZED', 'Authentication required', 401);
@@ -91,10 +96,10 @@ export function requireRole(allowedRoles: string[]) {
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      sendError(res, 'FORBIDDEN', 'Authenticated user lacks permission for this action', 403);
+      sendError(res, 'FORBIDDEN', 'You do not have permission to perform this action', 403);
       return;
     }
 
     next();
   };
-}
+};

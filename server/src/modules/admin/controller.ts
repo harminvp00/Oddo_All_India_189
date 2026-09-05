@@ -62,7 +62,7 @@ export async function handleCreateUser(req: AuthenticatedRequest, res: Response)
 
     const createdUser = await createUser({
       ...parseResult.data,
-      createdById: req.user?.userId,
+      createdById: req.user?.id || req.user?.userId,
     });
     return sendSuccess(res, createdUser, 201);
   } catch (error: any) {
