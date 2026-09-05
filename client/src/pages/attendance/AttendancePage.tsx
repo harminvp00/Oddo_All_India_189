@@ -53,7 +53,6 @@ export const AttendancePage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [punchLoading, setPunchLoading] = useState<boolean>(false);
   const [alertInfo, setAlertInfo] = useState<{ type: 'success' | 'danger' | 'warning' | 'info'; message: string } | null>(null);
-  const [userTodayRecord, setUserTodayRecord] = useState<AttendanceRecord | null>(null);
 
   // Modals state
   const [viewRecord, setViewRecord] = useState<AttendanceRecord | null>(null);
@@ -95,6 +94,24 @@ export const AttendancePage: React.FC = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   }, []);
 
+  const [userTodayRecord, setUserTodayRecord] = useState<AttendanceRecord | null>(() => {
+    if (!user?.employeeId) return null;
+    try {
+      const cached = localStorage.getItem(`peoplepay_attendance_${user.employeeId}_${todayStr}`);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return null;
+  });
+
+  const saveUserTodayRecord = useCallback((rec: AttendanceRecord | null) => {
+    setUserTodayRecord(rec);
+    if (user?.employeeId && rec) {
+      try {
+        localStorage.setItem(`peoplepay_attendance_${user.employeeId}_${todayStr}`, JSON.stringify(rec));
+      } catch {}
+    }
+  }, [user?.employeeId, todayStr]);
+
   // Fetch logged-in user's today attendance independently of table filters
   const fetchUserTodayAttendance = useCallback(async () => {
     if (!user?.employeeId) return;
@@ -106,12 +123,12 @@ export const AttendancePage: React.FC = () => {
         limit: 1,
       });
       if (res.items && res.items.length > 0) {
-        setUserTodayRecord(res.items[0]);
+        saveUserTodayRecord(res.items[0]);
       }
     } catch (err) {
       console.error('Failed to fetch user today attendance:', err);
     }
-  }, [user?.employeeId, todayStr]);
+  }, [user?.employeeId, todayStr, saveUserTodayRecord]);
 
   useEffect(() => {
     fetchUserTodayAttendance();
@@ -143,7 +160,7 @@ export const AttendancePage: React.FC = () => {
           return matchEmp && recordDate === todayStr;
         });
         if (found) {
-          setUserTodayRecord(found);
+          saveUserTodayRecord(found);
         }
       }
     } catch (err: any) {
@@ -156,7 +173,7 @@ export const AttendancePage: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [page, statusFilter, startDate, endDate, user?.employeeId, todayStr]);
+  }, [page, statusFilter, startDate, endDate, user?.employeeId, todayStr, saveUserTodayRecord]);
 
   useEffect(() => {
     loadAttendance();
@@ -200,7 +217,7 @@ export const AttendancePage: React.FC = () => {
     setAlertInfo(null);
     try {
       const record = await attendanceService.checkIn();
-      setUserTodayRecord(record);
+      saveUserTodayRecord(record);
       setAlertInfo({
         type: 'success',
         message: `Check-in recorded successfully at ${formatTime(record.checkIn || new Date().toISOString())}!`,
@@ -238,7 +255,7 @@ export const AttendancePage: React.FC = () => {
     setAlertInfo(null);
     try {
       const record = await attendanceService.checkOut();
-      setUserTodayRecord(record);
+      saveUserTodayRecord(record);
       setAlertInfo({
         type: 'success',
         message: `Check-out recorded successfully! Worked: ${record.workedHours} hrs, Overtime: ${record.overtimeHours} hrs.`,
