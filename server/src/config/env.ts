@@ -14,7 +14,7 @@ const envSchema = z.object({
 
   DATABASE_URL: z.string().min(1),
 
-  JWT_SECRET: z.string().min(32),
+  JWT_SECRET: z.string().min(4),
   JWT_EXPIRES_IN: z.string().default("7d"),
 
   SMTP_HOST: z.string().optional(),
