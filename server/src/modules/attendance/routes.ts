@@ -16,14 +16,14 @@ const authenticatedRoles = [
 router.post(
   "/check-in",
   authenticate,
-  requireRole(["EMPLOYEE"]),
+  requireRole([...authenticatedRoles]),
   attendanceController.checkIn,
 );
 
 router.post(
   "/check-out",
   authenticate,
-  requireRole(["EMPLOYEE"]),
+  requireRole([...authenticatedRoles]),
   attendanceController.checkOut,
 );
 

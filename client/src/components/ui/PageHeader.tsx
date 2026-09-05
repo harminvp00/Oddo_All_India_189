@@ -23,7 +23,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`flex flex-col gap-3 pb-5 border-b border-slate-200/80 mb-6 ${className}`}>
+    <div className={`flex flex-col gap-2.5 pb-5 border-b border-slate-200 mb-6 ${className}`}>
       {/* Optional Breadcrumbs */}
       {breadcrumbs && breadcrumbs.length > 0 && (
         <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
@@ -43,16 +43,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       )}
 
       {/* Main Header Content */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-start sm:items-center gap-3">
           {icon && (
-            <div className="p-2.5 bg-[var(--brand-subtle)] text-[var(--brand-hover)] border border-[var(--brand-soft)] rounded-2xl shrink-0 shadow-xs">
+            <div className="p-2 bg-[#F5EFF4] text-[#714B67] border border-purple-100 rounded-lg shrink-0">
               {icon}
             </div>
           )}
           <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">{title}</h1>
-            {description && <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">{description}</p>}
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
+            {description && <p className="text-xs sm:text-sm text-slate-500 font-normal mt-0.5">{description}</p>}
           </div>
         </div>
 

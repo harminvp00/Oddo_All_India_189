@@ -4,6 +4,16 @@ import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import prisma from './src/config/database';
 import { env } from './src/config/env';
+import authRoutes from './src/modules/auth/routes';
+import adminUserRoutes from './src/modules/admin/routes';
+import departmentsRouter from './src/modules/departments/routes';
+import positionsRouter from './src/modules/positions/routes';
+import schedulesRouter from './src/modules/schedules/routes';
+import attendanceRouter from './src/modules/attendance/routes';
+import employeesRouter from './src/modules/employees/routes';
+import contractsRouter from './src/modules/contracts/routes';
+import timeoffRouter from './src/modules/timeoff/routes';
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -16,6 +26,7 @@ app.use(
   })
 );
 
+// Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
     const userCount = await prisma.users.count();
@@ -24,6 +35,19 @@ app.get('/api/health', async (req, res) => {
     res.status(500).json({ status: 'error', message: (error as Error).message });
   }
 });
+
+// Module API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', adminUserRoutes);
+app.use('/api/departments', departmentsRouter);
+app.use('/api/positions', positionsRouter);
+app.use('/api/job-positions', positionsRouter);
+app.use('/api/schedules', schedulesRouter);
+app.use('/api/working-schedules', schedulesRouter);
+app.use('/api/attendance', attendanceRouter);
+app.use('/api/employees', employeesRouter);
+app.use('/api/contracts', contractsRouter);
+app.use('/api', timeoffRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

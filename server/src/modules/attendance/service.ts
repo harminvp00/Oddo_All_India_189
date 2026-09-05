@@ -1,6 +1,4 @@
-import { Prisma } from "@prisma/client";
-import { prisma } from "../../config/database";
-
+import prisma from "../../config/database";
 import {
   AttendanceListInput,
   CheckInInput,
@@ -45,7 +43,7 @@ export function calculateAttendance(params: {
   const workedHours = Math.max(0, grossHours - breakMinutes / 60);
   const overtimeHours = Math.max(0, workedHours - standardHours);
 
-  // The testing checklist defines >= 8h as PRESENT and 4-<8h as HALF_DAY.
+  // >= 8h as PRESENT, 4h-<8h as HALF_DAY, <4h as ABSENT/HALF_DAY
   const status: AttendanceStatus = workedHours >= 8 ? "PRESENT" : "HALF_DAY";
 
   return {
@@ -68,9 +66,9 @@ export class AttendanceService {
 
     const existing = await prisma.attendance.findUnique({
       where: {
-        employeeId_attendanceDate: {
-          employeeId,
-          attendanceDate,
+        employee_id_attendance_date: {
+          employee_id: employeeId,
+          attendance_date: attendanceDate,
         },
       },
     });
@@ -86,16 +84,16 @@ export class AttendanceService {
     try {
       return await prisma.attendance.create({
         data: {
-          employeeId,
-          attendanceDate,
-          checkIn,
-          workedHours: 0,
-          overtimeHours: 0,
+          employee_id: employeeId,
+          attendance_date: attendanceDate,
+          check_in: checkIn,
+          worked_hours: 0,
+          overtime_hours: 0,
           status: "PRESENT",
         },
       });
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
+    } catch (error: any) {
+      if (error?.code === "P2002") {
         throw new AttendanceServiceError(
           409,
           "ATTENDANCE_ALREADY_EXISTS",
@@ -116,9 +114,9 @@ export class AttendanceService {
 
     const attendance = await prisma.attendance.findUnique({
       where: {
-        employeeId_attendanceDate: {
-          employeeId,
-          attendanceDate,
+        employee_id_attendance_date: {
+          employee_id: employeeId,
+          attendance_date: attendanceDate,
         },
       },
     });
@@ -131,7 +129,7 @@ export class AttendanceService {
       );
     }
 
-    if (!attendance.checkIn) {
+    if (!attendance.check_in) {
       throw new AttendanceServiceError(
         400,
         "CHECK_IN_REQUIRED",
@@ -139,7 +137,7 @@ export class AttendanceService {
       );
     }
 
-    if (attendance.checkOut) {
+    if (attendance.check_out) {
       throw new AttendanceServiceError(
         409,
         "ALREADY_CHECKED_OUT",
@@ -147,12 +145,12 @@ export class AttendanceService {
       );
     }
 
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employees.findUnique({
       where: { id: employeeId },
       include: {
-        schedule: {
+        working_schedules: {
           include: {
-            scheduleDays: true,
+            schedule_days: true,
           },
         },
       },
@@ -162,26 +160,18 @@ export class AttendanceService {
       throw new AttendanceServiceError(404, "EMPLOYEE_NOT_FOUND", "Employee not found");
     }
 
-    if (!employee.schedule) {
-      throw new AttendanceServiceError(
-        400,
-        "WORKING_SCHEDULE_REQUIRED",
-        "Employee does not have a working schedule",
-      );
-    }
-
     const dayOfWeek = getScheduleDayOfWeek(attendanceDate);
-    const scheduleDay = employee.schedule.scheduleDays.find(
-      (day) => day.dayOfWeek === dayOfWeek,
+    const scheduleDay = employee.working_schedules?.schedule_days.find(
+      (day: any) => day.day_of_week === dayOfWeek,
     );
 
-    const breakMinutes = scheduleDay?.breakMinutes ?? 0;
+    const breakMinutes = scheduleDay?.break_minutes ?? 0;
     const standardHours = scheduleDay
-      ? calculateScheduleHours(scheduleDay.startTime, scheduleDay.endTime, breakMinutes)
-      : 0;
+      ? calculateScheduleHours(scheduleDay.start_time, scheduleDay.end_time, breakMinutes)
+      : 8;
 
     const calculation = calculateAttendance({
-      checkIn: attendance.checkIn,
+      checkIn: attendance.check_in,
       checkOut,
       breakMinutes,
       standardHours,
@@ -190,24 +180,23 @@ export class AttendanceService {
     return prisma.attendance.update({
       where: { id: attendance.id },
       data: {
-        checkOut,
-        workedHours: calculation.workedHours,
-        overtimeHours: calculation.overtimeHours,
+        check_out: checkOut,
+        worked_hours: calculation.workedHours,
+        overtime_hours: calculation.overtimeHours,
         status: calculation.status,
       },
     });
   }
 
   async list(input: AttendanceListInput, currentEmployeeId?: bigint) {
-    const page = input.page;
-    const limit = input.limit;
-    const where: Prisma.AttendanceWhereInput = {};
+    const page = input.page || 1;
+    const limit = input.limit || 20;
+    const where: any = {};
 
-    // EMPLOYEE requests are always scoped to their own employee ID.
     if (currentEmployeeId !== undefined) {
-      where.employeeId = currentEmployeeId;
+      where.employee_id = currentEmployeeId;
     } else if (input.employeeId !== undefined) {
-      where.employeeId = input.employeeId;
+      where.employee_id = input.employeeId;
     }
 
     if (input.status) {
@@ -215,28 +204,28 @@ export class AttendanceService {
     }
 
     if (input.startDate || input.endDate) {
-      where.attendanceDate = {};
+      where.attendance_date = {};
       if (input.startDate) {
-        where.attendanceDate.gte = parseDateOnly(input.startDate);
+        where.attendance_date.gte = parseDateOnly(input.startDate);
       }
       if (input.endDate) {
-        where.attendanceDate.lte = parseDateOnly(input.endDate);
+        where.attendance_date.lte = parseDateOnly(input.endDate);
       }
     }
 
     const [items, total] = await prisma.$transaction([
       prisma.attendance.findMany({
         where,
-        orderBy: { attendanceDate: "desc" },
+        orderBy: { attendance_date: "desc" },
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          employee: {
+          employees: {
             select: {
               id: true,
-              employeeCode: true,
-              firstName: true,
-              lastName: true,
+              employee_code: true,
+              first_name: true,
+              last_name: true,
             },
           },
         },
@@ -259,12 +248,12 @@ export class AttendanceService {
     const attendance = await prisma.attendance.findUnique({
       where: { id },
       include: {
-        employee: {
+        employees: {
           select: {
             id: true,
-            employeeCode: true,
-            firstName: true,
-            lastName: true,
+            employee_code: true,
+            first_name: true,
+            last_name: true,
           },
         },
       },
@@ -274,7 +263,7 @@ export class AttendanceService {
       throw new AttendanceServiceError(404, "ATTENDANCE_NOT_FOUND", "Attendance not found");
     }
 
-    if (currentEmployeeId !== undefined && attendance.employeeId !== currentEmployeeId) {
+    if (currentEmployeeId !== undefined && attendance.employee_id !== currentEmployeeId) {
       throw new AttendanceServiceError(
         403,
         "FORBIDDEN",
@@ -300,8 +289,8 @@ export class AttendanceService {
       );
     }
 
-    const checkIn = input.checkIn ? new Date(input.checkIn) : attendance.checkIn;
-    const checkOut = input.checkOut ? new Date(input.checkOut) : attendance.checkOut;
+    const checkIn = input.checkIn ? new Date(input.checkIn) : attendance.check_in;
+    const checkOut = input.checkOut ? new Date(input.checkOut) : attendance.check_out;
 
     if (checkIn && checkOut && checkOut <= checkIn) {
       throw new AttendanceServiceError(
@@ -314,94 +303,27 @@ export class AttendanceService {
     return prisma.attendance.update({
       where: { id },
       data: {
-        checkIn,
-        checkOut,
-        ...(input.workedHours !== undefined ? { workedHours: input.workedHours } : {}),
-        ...(input.overtimeHours !== undefined ? { overtimeHours: input.overtimeHours } : {}),
-        status: "CORRECTED",
-        correctionNote: input.correctionNote.trim(),
-        correctedBy,
+        check_in: checkIn,
+        check_out: checkOut,
+        ...(input.workedHours !== undefined ? { worked_hours: input.workedHours } : {}),
+        status: input.status || "CORRECTED",
+        correction_note: input.correctionNote.trim(),
+        corrected_by: correctedBy,
       },
     });
   }
 
-  async manualInsert(
-    input: {
-      employeeId: bigint;
-      attendanceDate: string;
-      checkIn?: string;
-      checkOut?: string;
-      workedHours?: number;
-      overtimeHours?: number;
-      status?: AttendanceStatus;
-      correctionNote?: string;
-    },
-    createdBy: bigint,
-  ) {
-    await this.ensureEmployee(input.employeeId);
-
-    const attendanceDate = parseDateOnly(input.attendanceDate);
-    const checkIn = input.checkIn ? new Date(input.checkIn) : null;
-    const checkOut = input.checkOut ? new Date(input.checkOut) : null;
-
-    if (checkIn) assertValidDate(checkIn, "checkIn");
-    if (checkOut) assertValidDate(checkOut, "checkOut");
-
-    if (checkIn && checkOut && checkOut <= checkIn) {
-      throw new AttendanceServiceError(
-        400,
-        "INVALID_ATTENDANCE_TIME",
-        "Check-out must be after check-in",
-      );
-    }
-
-    const status = input.status ?? "PRESENT";
-
-    if (status === "CORRECTED" && !input.correctionNote?.trim()) {
-      throw new AttendanceServiceError(
-        400,
-        "CORRECTION_NOTE_REQUIRED",
-        "Correction note is required for corrected attendance",
-      );
-    }
-
-    try {
-      return await prisma.attendance.create({
-        data: {
-          employeeId: input.employeeId,
-          attendanceDate,
-          checkIn,
-          checkOut,
-          workedHours: input.workedHours ?? 0,
-          overtimeHours: input.overtimeHours ?? 0,
-          status,
-          correctionNote: input.correctionNote?.trim() ?? null,
-          correctedBy: status === "CORRECTED" ? createdBy : null,
-        },
-      });
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        throw new AttendanceServiceError(
-          409,
-          "ATTENDANCE_ALREADY_EXISTS",
-          "Attendance already exists for this date",
-        );
-      }
-      throw error;
-    }
-  }
-
   private async ensureEmployee(employeeId: bigint) {
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employees.findUnique({
       where: { id: employeeId },
-      select: { id: true, employmentStatus: true },
+      select: { id: true, employment_status: true },
     });
 
     if (!employee) {
       throw new AttendanceServiceError(404, "EMPLOYEE_NOT_FOUND", "Employee not found");
     }
 
-    if (employee.employmentStatus !== "ACTIVE") {
+    if (employee.employment_status !== "ACTIVE") {
       throw new AttendanceServiceError(
         400,
         "EMPLOYEE_INACTIVE",
@@ -437,11 +359,12 @@ function assertValidDate(value: Date, field: string) {
 }
 
 function getScheduleDayOfWeek(date: Date): number {
-  return date.getUTCDay();
+  const day = date.getUTCDay();
+  return day === 0 ? 7 : day; // 1 (Mon) to 7 (Sun)
 }
 
 function calculateScheduleHours(startTime: Date | null, endTime: Date | null, breakMinutes: number) {
-  if (!startTime || !endTime) return 0;
+  if (!startTime || !endTime) return 8;
 
   const startMinutes = startTime.getUTCHours() * 60 + startTime.getUTCMinutes();
   const endMinutes = endTime.getUTCHours() * 60 + endTime.getUTCMinutes();
@@ -451,8 +374,4 @@ function calculateScheduleHours(startTime: Date | null, endTime: Date | null, br
 
 function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function isUniqueConstraintError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }

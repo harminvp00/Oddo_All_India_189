@@ -7,3 +7,5 @@ node_modules
 db.sql
 server/prisma/migrations
 server/src/generated
+dist
+client/dist

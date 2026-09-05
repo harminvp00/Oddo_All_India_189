@@ -1,44 +1,49 @@
 /**
- * SINGLE SOURCE OF TRUTH FOR THE UI COLOR SYSTEM
+ * SINGLE SOURCE OF TRUTH FOR THE PEOPLEPAY360 UI COLOR SYSTEM
  * 
- * Changing `themeConfig.brand.primary` (or updating `--brand` in CSS)
- * propagates throughout the entire application shell, navigation, canvas,
- * components, buttons, form focus rings, splash screen, and auth pages.
+ * Implements the Cuberto-inspired typography and Odoo-inspired enterprise 
+ * color tokens (#714B67 purple primary, #017E84 teal secondary, #F7F7F8 canvas).
  */
 
 export const themeConfig = {
   brand: {
-    // Primary Brand Color (Vibrant Blue Theme)
-    primary: '#2563eb',         // Blue-600 (#2563eb) / #2D8AD1
-    hover: '#1d4ed8',           // Blue-700
-    active: '#1e40af',          // Blue-800
-    soft: '#eff6ff',            // Light blue tint (Blue-50) - active nav pills & badge bg
-    subtle: '#f0f9ff',          // Subtle blue tint (Sky-50) - soft section accents
-    foreground: '#ffffff',      // Primary button text
+    // Primary Brand Color (Deep Odoo-inspired Purple)
+    primary: '#714B67',
+    hover: '#5B3A52',
+    active: '#482C40',
+    soft: '#F5EFF4',
+    subtle: '#FAF6F9',
+    foreground: '#FFFFFF',
+
+    // Secondary Brand Color (Teal Accent)
+    secondary: '#017E84',
+    secondaryHover: '#00686D',
+    secondarySoft: '#E6F4F4',
   },
   layers: {
-    // Shell: Sidebar + Navbar matching visual family
-    shellBg: '#ffffff',         // Clean light surface background
-    shellBorder: '#dbeafe',     // Subtle blue-tinted divider border (Blue-100)
+    // Shell: Clean light surface
+    shellBg: '#FFFFFF',
+    shellBorder: '#E5E7EB',
     
-    // Main Canvas: Soft blue-tinted background for the workspace canvas
-    canvas: '#f0f7ff',          // Light blue-tinted canvas background
+    // Main Canvas: Neutral background for enterprise SaaS
+    canvas: '#F7F7F8',
     
     // Surfaces: Crisp white cards floating over canvas
-    surface: '#ffffff',         // White card / form / table surface
-    surfaceMuted: '#f8fafc',    // Soft surface fill
+    surface: '#FFFFFF',
+    surfaceMuted: '#FAFAFA',
   },
   typography: {
     fontSans: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     fontMono: "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
   },
   radius: {
-    sm: '0.5rem',
-    md: '0.75rem',
-    lg: '1rem',
-    xl: '1.25rem',
+    sm: '0.375rem',  // 6px
+    md: '0.5rem',    // 8px
+    lg: '0.75rem',   // 12px
+    xl: '1rem',      // 16px
     full: '9999px',
   },
 } as const;
 
 export type ThemeConfig = typeof themeConfig;
+
