@@ -1,30 +1,33 @@
 import { Response } from 'express';
 
 /**
- * Recursively serializes BigInt and Decimal fields to string/number for JSON compatibility.
+ * Recursively serializes BigInt, Decimal, and Date fields to string/number/ISO string for JSON compatibility.
  */
-export function serializeData<T>(data: T): T {
+export function serializeData<T = any>(data: any): T {
   if (data === null || data === undefined) {
     return data;
   }
 
   if (typeof data === 'bigint') {
-    return data.toString() as unknown as T;
-  }
-
-  if (Array.isArray(data)) {
-    return data.map((item) => serializeData(item)) as unknown as T;
+    return data.toString() as any;
   }
 
   if (typeof data === 'object') {
-    // Check if it's a Decimal object (Prisma Decimal has toString / toNumber)
+    // Handle Prisma Decimal
     if ('toNumber' in data && typeof (data as any).toNumber === 'function') {
       return (data as any).toNumber();
+    }
+    if ('s' in data && 'e' in data && 'd' in data) {
+      return Number(data.toString()) as any;
     }
 
     // Check if it's a Date
     if (data instanceof Date) {
-      return data as unknown as T;
+      return data.toISOString() as any;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map((item) => serializeData(item)) as any;
     }
 
     const transformed: Record<string, any> = {};
@@ -71,6 +74,43 @@ export function errorResponse(
   details?: any
 ) {
   return res.status(statusCode).json({
+    success: false,
+    error: {
+      code,
+      message,
+      ...(details ? { details } : {}),
+    },
+  });
+}
+
+export function sendSuccess(res: Response, data: any, status = 200) {
+  return res.status(status).json({
+    success: true,
+    data: serializeData(data),
+  });
+}
+
+export function sendPaginated(
+  res: Response,
+  data: any[],
+  meta: { page: number; limit: number; total: number; totalPages: number },
+  status = 200
+) {
+  return res.status(status).json({
+    success: true,
+    data: serializeData(data),
+    meta,
+  });
+}
+
+export function sendError(
+  res: Response,
+  code: string,
+  message: string,
+  status = 400,
+  details?: any
+) {
+  return res.status(status).json({
     success: false,
     error: {
       code,

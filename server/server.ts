@@ -4,6 +4,8 @@ import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import prisma from './src/config/database';
 import { env } from './src/config/env';
+import authRoutes from './src/modules/auth/routes';
+import adminUserRoutes from './src/modules/admin/routes';
 import departmentsRouter from './src/modules/departments/routes';
 import positionsRouter from './src/modules/positions/routes';
 import schedulesRouter from './src/modules/schedules/routes';
@@ -31,6 +33,8 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Module API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', adminUserRoutes);
 app.use('/api/departments', departmentsRouter);
 app.use('/api/job-positions', positionsRouter);
 app.use('/api/working-schedules', schedulesRouter);

@@ -1,13 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { env } from '../config/env';
+import { verifyToken, JwtPayload } from '../utils/jwt';
+import { sendError } from '../utils/response';
 import prisma from '../config/database';
 
 export interface AuthenticatedUser {
   id: string;
+  userId: string;
   email: string;
-  role: 'EMPLOYEE' | 'HR_MANAGER' | 'HR_PAYROLL_USER' | 'HR_PAYROLL_MANAGER' | 'ADMIN';
+  role: string;
   employeeId?: string | null;
+}
+
+export interface AuthenticatedRequest extends Request {
+  user?: AuthenticatedUser;
 }
 
 declare global {
@@ -25,88 +30,71 @@ export const authenticate = async (
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ')
-      ? authHeader.split(' ')[1]
-      : req.cookies?.token;
+    let token: string | undefined;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
 
     if (!token) {
-      res.status(401).json({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication token is missing',
-        },
-      });
+      sendError(res, 'UNAUTHORIZED', 'Authentication token is required', 401);
       return;
     }
 
-    const decoded = jwt.verify(token, env.JWT_SECRET) as {
-      id: string;
-      email: string;
-      role: AuthenticatedUser['role'];
-      employeeId?: string | null;
-    };
+    const decoded = verifyToken(token);
+    const userIdStr = decoded.userId || (decoded as any).id;
+
+    if (!userIdStr) {
+      sendError(res, 'UNAUTHORIZED', 'Invalid token payload', 401);
+      return;
+    }
 
     // Check if user still exists and is ACTIVE
     const user = await prisma.users.findUnique({
-      where: { id: BigInt(decoded.id) },
+      where: { id: BigInt(userIdStr) },
       include: { employees: true },
     });
 
     if (!user || user.status === 'DISABLED') {
-      res.status(403).json({
-        success: false,
-        error: {
-          code: user ? 'ACCOUNT_DISABLED' : 'UNAUTHORIZED',
-          message: user ? 'User account is disabled' : 'User not found',
-        },
-      });
+      sendError(
+        res,
+        user ? 'ACCOUNT_DISABLED' : 'UNAUTHORIZED',
+        user ? 'User account is disabled' : 'User not found',
+        user ? 403 : 401
+      );
       return;
     }
 
     req.user = {
       id: user.id.toString(),
+      userId: user.id.toString(),
       email: user.email,
-      role: user.role as AuthenticatedUser['role'],
+      role: user.role,
       employeeId: user.employees?.id ? user.employees.id.toString() : null,
     };
 
     next();
   } catch (error) {
-    res.status(401).json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Invalid or expired authentication token',
-      },
-    });
+    sendError(res, 'UNAUTHORIZED', 'Invalid or expired authentication token', 401);
   }
 };
 
-export const requireRole = (allowedRoles: AuthenticatedUser['role'][]) => {
+export const authenticateToken = authenticate;
+
+export function requireRole(allowedRoles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      res.status(401).json({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required',
-        },
-      });
+      sendError(res, 'UNAUTHORIZED', 'Authentication required', 401);
       return;
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({
-        success: false,
-        error: {
-          code: 'FORBIDDEN',
-          message: 'You do not have permission to perform this action',
-        },
-      });
+      sendError(res, 'FORBIDDEN', 'Authenticated user lacks permission for this action', 403);
       return;
     }
 
     next();
   };
-};
+}
