@@ -223,6 +223,166 @@ export interface WorkingScheduleFilterParams {
   limit?: number;
 }
 
+// Attendance Types (matches Backend Schema & API)
+export type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'HALF_DAY' | 'CORRECTED';
+
+export interface AttendanceRecord {
+  id: string;
+  employeeId: string;
+  attendanceDate: string; // YYYY-MM-DD
+  checkIn?: string | null; // ISO DateTime
+  checkOut?: string | null; // ISO DateTime
+  workedHours: number;
+  overtimeHours: number;
+  status: AttendanceStatus;
+  correctionNote?: string | null;
+  correctedBy?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  employee?: {
+    id: string;
+    employeeCode: string;
+    firstName: string;
+    lastName: string;
+    name?: string;
+  };
+}
+
+export interface CheckInDTO {
+  attendanceDate?: string;
+  checkIn?: string;
+}
+
+export interface CheckOutDTO {
+  attendanceDate?: string;
+  checkOut?: string;
+}
+
+export interface CorrectionDTO {
+  checkIn?: string;
+  checkOut?: string;
+  workedHours?: number;
+  status?: AttendanceStatus;
+  correctionNote: string;
+}
+
+export interface AttendanceFilterParams {
+  employeeId?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+// Employee Types (matches PostgreSQL Schema & Backend API)
+export type EmployeeType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY';
+export type EmploymentStatus = 'ACTIVE' | 'ON_LEAVE' | 'SUSPENDED' | 'TERMINATED';
+
+export interface Employee {
+  id: string;
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  dateOfBirth?: string | null;
+  hireDate: string;
+  terminationDate?: string | null;
+  employeeType: EmployeeType;
+  employmentStatus: EmploymentStatus;
+  departmentId?: string | null;
+  department?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  positionId?: string | null;
+  position?: {
+    id: string;
+    title: string;
+  };
+  scheduleId?: string | null;
+  schedule?: {
+    id: string;
+    name: string;
+    scheduleType: string;
+    weeklyHours: number;
+  };
+  managerId?: string | null;
+  manager?: {
+    id: string;
+    employeeCode: string;
+    name: string;
+  };
+  userId?: string | null;
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    status: string;
+  };
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
+  bankName?: string | null;
+  ifscCode?: string | null;
+  totalAttendance?: number;
+  totalContracts?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateEmployeeDTO {
+  employeeCode?: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  hireDate: string;
+  employeeType?: EmployeeType;
+  employmentStatus?: EmploymentStatus;
+  departmentId?: string;
+  positionId?: string;
+  managerId?: string;
+  scheduleId?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  ifscCode?: string;
+}
+
+export interface UpdateEmployeeDTO {
+  employeeCode?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  hireDate?: string;
+  terminationDate?: string;
+  employeeType?: EmployeeType;
+  employmentStatus?: EmploymentStatus;
+  departmentId?: string;
+  positionId?: string;
+  managerId?: string;
+  scheduleId?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  ifscCode?: string;
+}
+
+export interface EmployeeFilterParams {
+  search?: string;
+  departmentId?: string;
+  positionId?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
 // Generic CRUD Types
 export interface ExampleItem {
   id: string;
@@ -242,4 +402,5 @@ export interface APIFilters {
   page?: number;
   limit?: number;
 }
+
 

@@ -5,6 +5,7 @@ import {
   Building2, 
   Briefcase, 
   CalendarDays,
+  CalendarClock,
   Users,
   CheckCircle2, 
   ArrowRight,
@@ -70,10 +71,17 @@ export const Dashboard: React.FC = () => {
           </p>
           <div className="flex flex-wrap items-center gap-3 mt-6">
             <Link
-              to="/employees"
+              to="/attendance"
               className="inline-flex items-center gap-2 px-4.5 py-2.5 rounded-2xl bg-white text-indigo-900 hover:bg-indigo-50 font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95"
             >
-              <Users className="w-4 h-4 text-indigo-600" />
+              <CalendarClock className="w-4 h-4 text-indigo-600" />
+              <span>Punch In / Attendance</span>
+            </Link>
+            <Link
+              to="/employees"
+              className="inline-flex items-center gap-2 px-4.5 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white border border-white/30 backdrop-blur-md font-bold text-xs sm:text-sm transition-all active:scale-95"
+            >
+              <Users className="w-4 h-4 text-indigo-200" />
               <span>Employees</span>
             </Link>
             <Link

@@ -9,6 +9,8 @@ import adminUserRoutes from './src/modules/admin/routes';
 import departmentsRouter from './src/modules/departments/routes';
 import positionsRouter from './src/modules/positions/routes';
 import schedulesRouter from './src/modules/schedules/routes';
+import attendanceRouter from './src/modules/attendance/routes';
+import employeesRouter from './src/modules/employees/routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,8 +38,12 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', adminUserRoutes);
 app.use('/api/departments', departmentsRouter);
+app.use('/api/positions', positionsRouter);
 app.use('/api/job-positions', positionsRouter);
+app.use('/api/schedules', schedulesRouter);
 app.use('/api/working-schedules', schedulesRouter);
+app.use('/api/attendance', attendanceRouter);
+app.use('/api/employees', employeesRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

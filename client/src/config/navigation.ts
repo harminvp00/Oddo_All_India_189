@@ -5,6 +5,7 @@ import {
   Building2,
   Briefcase,
   CalendarDays,
+  CalendarClock,
   Users,
   ShieldCheck,
 } from 'lucide-react';
@@ -23,6 +24,12 @@ export const mainNavItems: NavItem[] = [
     label: 'Employees',
     path: '/employees',
     icon: React.createElement(Users, { className: "w-4 h-4" }),
+    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
+  },
+  {
+    label: 'Attendance',
+    path: '/attendance',
+    icon: React.createElement(CalendarClock, { className: "w-4 h-4" }),
     roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
   },
   {
