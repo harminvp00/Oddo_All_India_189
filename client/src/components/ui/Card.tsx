@@ -12,9 +12,9 @@ export const Card: React.FC<CardProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    default: 'bg-white border border-blue-100/80 shadow-sm rounded-3xl overflow-hidden',
-    flat: 'bg-blue-50/50 border border-blue-100/60 rounded-3xl overflow-hidden',
-    outline: 'bg-transparent border border-blue-200 rounded-3xl overflow-hidden',
+    default: 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs hover:border-slate-300/80 transition-all',
+    flat: 'bg-slate-50 border border-slate-200/80 rounded-xl overflow-hidden',
+    outline: 'bg-transparent border border-slate-200 rounded-xl overflow-hidden',
   };
 
   return (
@@ -30,7 +30,7 @@ export const CardHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   ...props
 }) => {
   return (
-    <div className={`px-6 py-4.5 border-b border-blue-50 flex flex-col gap-1 ${className}`} {...props}>
+    <div className={`px-5 py-4 border-b border-slate-100 flex flex-col gap-0.5 ${className}`} {...props}>
       {children}
     </div>
   );
@@ -42,7 +42,7 @@ export const CardTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
   ...props
 }) => {
   return (
-    <h3 className={`text-base font-extrabold text-slate-900 tracking-tight ${className}`} {...props}>
+    <h3 className={`text-[15px] font-bold text-slate-900 tracking-tight ${className}`} {...props}>
       {children}
     </h3>
   );
@@ -54,7 +54,7 @@ export const CardDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement
   ...props
 }) => {
   return (
-    <p className={`text-xs text-slate-500 font-medium ${className}`} {...props}>
+    <p className={`text-xs text-slate-500 font-normal ${className}`} {...props}>
       {children}
     </p>
   );
@@ -66,7 +66,7 @@ export const CardContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   ...props
 }) => {
   return (
-    <div className={`p-6 ${className}`} {...props}>
+    <div className={`p-5 ${className}`} {...props}>
       {children}
     </div>
   );
@@ -78,7 +78,7 @@ export const CardFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   ...props
 }) => {
   return (
-    <div className={`px-6 py-3.5 bg-blue-50/30 border-t border-blue-50 flex items-center justify-between gap-3 ${className}`} {...props}>
+    <div className={`px-5 py-3 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between ${className}`} {...props}>
       {children}
     </div>
   );

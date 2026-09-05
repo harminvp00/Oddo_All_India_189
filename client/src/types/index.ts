@@ -329,6 +329,7 @@ export interface Employee {
   ifscCode?: string | null;
   totalAttendance?: number;
   totalContracts?: number;
+  avatarUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -351,6 +352,7 @@ export interface CreateEmployeeDTO {
   bankAccountNumber?: string;
   bankName?: string;
   ifscCode?: string;
+  avatarUrl?: string;
 }
 
 export interface UpdateEmployeeDTO {
@@ -372,6 +374,7 @@ export interface UpdateEmployeeDTO {
   bankAccountNumber?: string;
   bankName?: string;
   ifscCode?: string;
+  avatarUrl?: string;
 }
 
 export interface EmployeeFilterParams {

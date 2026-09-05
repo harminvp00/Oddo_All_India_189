@@ -9,6 +9,9 @@ import { Alert } from '../../components/ui/Alert';
 import { employeeService } from '../../services/employeeService';
 import { contractService } from '../../services/contractService';
 import { ContractModal } from '../contracts/ContractModal';
+import { Modal } from '../../components/ui/Modal';
+import { AvatarUpload } from '../../components/ui/AvatarUpload';
+import { getStoredAvatar, setStoredAvatar } from '../../utils/avatarUtils';
 import type { Employee, EmploymentStatus, Contract, EmployeeSummary } from '../../types';
 import { 
   ArrowLeft, 
@@ -29,6 +32,7 @@ import {
   Layers,
   Activity,
   Award,
+  Camera,
 } from 'lucide-react';
 
 export const EmployeeDetailPage: React.FC = () => {
@@ -40,6 +44,8 @@ export const EmployeeDetailPage: React.FC = () => {
   const [summary, setSummary] = useState<EmployeeSummary | null>(null);
   const [employeeContracts, setEmployeeContracts] = useState<Contract[]>([]);
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +59,7 @@ export const EmployeeDetailPage: React.FC = () => {
         contractService.listContracts({ employeeId: id, limit: 20 }).catch(() => ({ items: [], meta: {} as any })),
       ]);
       setEmployee(empData);
+      setAvatarUrl(empData.avatarUrl || getStoredAvatar(id) || getStoredAvatar(empData.employeeCode) || null);
       setSummary(summaryData);
       setEmployeeContracts(contractsRes.items || []);
     } catch (err: any) {
@@ -66,6 +73,16 @@ export const EmployeeDetailPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [id]);
+
+  const handleSavePhoto = (newPhoto: string | null) => {
+    if (!id || !employee) return;
+    setAvatarUrl(newPhoto);
+    if (newPhoto) {
+      setStoredAvatar(id, newPhoto);
+      setStoredAvatar(employee.employeeCode, newPhoto);
+    }
+    setIsPhotoModalOpen(false);
+  };
 
   const TABS = [
     { id: 'overview', label: 'Overview' },
@@ -108,51 +125,45 @@ export const EmployeeDetailPage: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn pb-16 max-w-6xl mx-auto">
       {/* Header Profile Card */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-        {/* Cover Banner */}
-        <div className="relative h-44 sm:h-52 w-full bg-gradient-to-r from-slate-900 via-indigo-950 to-indigo-900 overflow-hidden">
-          {/* Ambient Glows & Grid Mesh */}
-          <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-20 left-1/4 w-80 h-80 rounded-full bg-blue-500/15 blur-2xl pointer-events-none" />
-          <div className="absolute inset-0 opacity-[0.08] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-
-          {/* Top Bar inside Cover */}
-          <div className="relative z-10 p-4 sm:p-6 flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<ArrowLeft className="w-4 h-4 text-white" />}
-              onClick={() => navigate('/employees')}
-              className="text-white hover:text-white bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-xs font-bold shadow-xs cursor-pointer transition-all"
-            >
-              Back to Employees
-            </Button>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-white/90 bg-white/10 backdrop-blur-md border border-white/15 px-3 py-1 rounded-full uppercase tracking-wider">
-                {employee.employeeType ? employee.employeeType.replace('_', ' ') : 'Full Time'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Profile Content Body */}
-        <div className="px-6 sm:px-8 pb-6 sm:pb-7">
-          <div className="flex flex-col sm:flex-row items-center sm:items-end justify-between gap-5 pt-2">
-            {/* Avatar & Main Title */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
-              {/* Avatar Box with Ring & Elevation: only the avatar overlaps the cover boundary */}
-              <div className="relative shrink-0 -mt-16 sm:-mt-20 z-20">
-                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-white p-1.5 sm:p-2 shadow-xl ring-4 ring-white">
-                  <div className="w-full h-full rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-900 text-white font-black text-2xl sm:text-3xl flex items-center justify-center shadow-inner tracking-wider">
+      <div className="bg-white rounded-3xl p-6 border border-slate-200/70 shadow-xs relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-r from-[#714B67] via-[#5b3c53] to-slate-900" />
+        
+        <div className="relative mt-10 flex flex-col sm:flex-row gap-6 items-start sm:items-end justify-between">
+          <div className="flex flex-col sm:flex-row gap-5 items-center sm:items-end">
+            <div className="relative group w-24 h-24 rounded-2xl bg-white p-1.5 shadow-lg shrink-0">
+              <div className="w-full h-full rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={employee.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#714B67] to-slate-800 text-white font-extrabold text-2xl flex items-center justify-center">
                     {initials}
                   </div>
-                </div>
-                {employee.employmentStatus === 'ACTIVE' && (
-                  <span
-                    title="Active Employee"
-                    className="absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 w-4 h-4 sm:w-5 sm:h-5 bg-emerald-500 rounded-full border-2 border-white shadow-xs flex items-center justify-center"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPhotoModalOpen(true)}
+                className="absolute inset-1.5 rounded-xl bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer"
+                title="Change profile picture"
+              >
+                <Camera className="w-5 h-5" />
+                <span className="text-[9px] font-bold">Edit</span>
+              </button>
+            </div>
+            <div className="pb-1 text-center sm:text-left">
+              <div className="flex items-center gap-2 justify-center sm:justify-start">
+                <h1 className="text-2xl font-extrabold text-slate-900">{employee.name}</h1>
+                <span className="text-xs font-bold text-[#714B67] bg-[#714B67]/10 px-2 py-0.5 rounded-full font-mono">
+                  {employee.employeeCode}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2.5 items-center mt-2 justify-center sm:justify-start text-xs font-medium text-slate-600">
+                <Badge variant={statusVariantMap[employee.employmentStatus] || 'neutral'}>
+                  {employee.employmentStatus.replace('_', ' ')}
+                </Badge>
+                {employee.position && (
+                  <span className="flex items-center gap-1 text-slate-700">
+                    <Briefcase className="w-3.5 h-3.5 text-violet-500" /> {employee.position.title}
                   </span>
                 )}
               </div>
@@ -200,18 +211,25 @@ export const EmployeeDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end pb-1">
-              <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<ArrowLeft className="w-4 h-4 text-slate-500" />}
-                onClick={() => navigate('/employees')}
-                className="bg-white hover:bg-slate-50 font-bold text-xs border-slate-200 shadow-2xs"
-              >
-                Back to List
-              </Button>
-            </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Camera className="w-4 h-4 text-slate-500" />}
+              onClick={() => setIsPhotoModalOpen(true)}
+              className="bg-white font-bold text-xs"
+            >
+              Update Photo
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<ArrowLeft className="w-4 h-4 text-slate-500" />}
+              onClick={() => navigate('/employees')}
+              className="bg-white font-bold text-xs"
+            >
+              Back to List
+            </Button>
           </div>
         </div>
       </div>
@@ -512,6 +530,29 @@ export const EmployeeDetailPage: React.FC = () => {
           onSuccess={loadData}
           defaultEmployeeId={employee.id}
         />
+      )}
+
+      {/* Change Photo Modal */}
+      {isPhotoModalOpen && (
+        <Modal
+          isOpen={isPhotoModalOpen}
+          onClose={() => setIsPhotoModalOpen(false)}
+          title={`Update Profile Photo: ${employee.name}`}
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <AvatarUpload
+              currentAvatarUrl={avatarUrl}
+              initials={initials}
+              onAvatarChange={handleSavePhoto}
+            />
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <Button variant="ghost" size="sm" onClick={() => setIsPhotoModalOpen(false)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
