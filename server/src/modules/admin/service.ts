@@ -17,9 +17,15 @@ export async function listUsers(query: {
   const where: any = {};
 
   if (query.search) {
+    const trimmed = query.search.trim();
     where.OR = [
-      { email: { contains: query.search, mode: 'insensitive' } },
-      { full_name: { contains: query.search, mode: 'insensitive' } },
+      { email: { contains: trimmed, mode: 'insensitive' } },
+      { full_name: { contains: trimmed, mode: 'insensitive' } },
+      {
+        employees: {
+          employee_code: { contains: trimmed, mode: 'insensitive' },
+        },
+      },
     ];
   }
 
@@ -31,7 +37,7 @@ export async function listUsers(query: {
     where.status = query.status as user_status;
   }
 
-  const [total, users] = await Promise.all([
+  const [total, users, totalUsersCount, activeCount, adminCount] = await Promise.all([
     prisma.users.count({ where }),
     prisma.users.findMany({
       where,
@@ -54,6 +60,9 @@ export async function listUsers(query: {
         },
       },
     }),
+    prisma.users.count(),
+    prisma.users.count({ where: { status: 'ACTIVE' } }),
+    prisma.users.count({ where: { role: 'ADMIN' } }),
   ]);
 
   const totalPages = Math.ceil(total / limit) || 1;
@@ -77,6 +86,11 @@ export async function listUsers(query: {
       limit,
       total,
       totalPages,
+      stats: {
+        total: totalUsersCount,
+        active: activeCount,
+        admin: adminCount,
+      },
     },
   };
 }
