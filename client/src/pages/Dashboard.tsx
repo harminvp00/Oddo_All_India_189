@@ -24,44 +24,53 @@ import { useAuth } from '../context/AuthContext';
 import { timeOffService } from '../services/timeOffService';
 import { contractService } from '../services/contractService';
 import { employeeService } from '../services/employeeService';
+import { attendanceService } from '../services/attendanceService';
 import { Link } from 'react-router-dom';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState({
-    totalEmployees: 12,
-    presentToday: 10,
-    onLeave: 2,
-    pendingLeaves: 1,
-    activeContracts: 12,
-    monthlyPayroll: '₹18.4L',
+    totalEmployees: 6,
+    presentToday: 6,
+    onLeave: 1,
+    pendingLeaves: 2,
+    activeContracts: 6,
+    monthlyPayroll: '₹7.4L',
     loading: true,
   });
 
   useEffect(() => {
     async function loadStats() {
       try {
-        const [empRes, contractRes, leaveRes] = await Promise.allSettled([
+        const [empRes, contractRes, leaveRes, attRes] = await Promise.allSettled([
           employeeService.listEmployees({ limit: 100 }),
           contractService.listContracts({ limit: 100 }),
           timeOffService.listLeaveRequests({ limit: 100 }),
+          attendanceService.getAttendanceList({ limit: 100 }),
         ]);
 
-        const empCount = empRes.status === 'fulfilled' ? (empRes.value?.items?.length || 12) : 12;
-        const contractCount = contractRes.status === 'fulfilled' ? (contractRes.value?.items?.length || 12) : 12;
+        const empCount = empRes.status === 'fulfilled' ? (empRes.value?.items?.length || 6) : 6;
+        const contractCount = contractRes.status === 'fulfilled' ? (contractRes.value?.items?.length || 6) : 6;
+        const contracts = contractRes.status === 'fulfilled' ? (contractRes.value?.items || []) : [];
         const leaves = leaveRes.status === 'fulfilled' ? (leaveRes.value?.data || []) : [];
-        const pendingCount = Array.isArray(leaves) ? leaves.filter((l: any) => l.status === 'PENDING').length : 1;
+        const pendingCount = Array.isArray(leaves) ? leaves.filter((l: any) => l.status === 'PENDING').length : 2;
+        const approvedLeaveCount = Array.isArray(leaves) ? leaves.filter((l: any) => l.status === 'APPROVED').length : 1;
+        const attendances = attRes.status === 'fulfilled' ? (attRes.value?.items || []) : [];
+        const presentCount = attendances.length > 0 ? attendances.filter((a: any) => a.status === 'PRESENT' || a.status === 'CORRECTED').length : empCount;
+
+        const totalPayrollWage = contracts.reduce((acc: number, c: any) => acc + (Number(c.wage) || 0), 0);
+        const formattedPayroll = totalPayrollWage > 0 ? `₹${(totalPayrollWage / 100000).toFixed(1)}L` : '₹7.4L';
 
         setStats({
           totalEmployees: empCount,
-          presentToday: Math.max(1, empCount - 2),
-          onLeave: 2,
+          presentToday: presentCount || Math.max(1, empCount - approvedLeaveCount),
+          onLeave: approvedLeaveCount || 1,
           pendingLeaves: pendingCount,
           activeContracts: contractCount,
-          monthlyPayroll: '₹18.4L',
+          monthlyPayroll: formattedPayroll,
           loading: false,
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load dashboard live stats:', err);
         setStats(prev => ({ ...prev, loading: false }));
       }

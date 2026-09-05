@@ -150,66 +150,48 @@ export const EmployeeDetailPage: React.FC = () => {
                 <span className="text-[9px] font-bold">Edit</span>
               </button>
             </div>
+
             <div className="pb-1 text-center sm:text-left">
-              <div className="flex items-center gap-2 justify-center sm:justify-start">
-                <h1 className="text-2xl font-extrabold text-slate-900">{employee.name}</h1>
-                <span className="text-xs font-bold text-[#714B67] bg-[#714B67]/10 px-2 py-0.5 rounded-full font-mono">
+              <div className="flex flex-wrap items-center gap-2.5 justify-center sm:justify-start">
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  {employee.name}
+                </h1>
+                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100/90 px-2.5 py-0.5 rounded-lg font-mono shadow-2xs">
                   {employee.employeeCode}
                 </span>
-              </div>
-              <div className="flex flex-wrap gap-2.5 items-center mt-2 justify-center sm:justify-start text-xs font-medium text-slate-600">
                 <Badge variant={statusVariantMap[employee.employmentStatus] || 'neutral'}>
                   {employee.employmentStatus.replace('_', ' ')}
                 </Badge>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-y-2 gap-x-3.5 mt-2.5 justify-center sm:justify-start text-xs font-semibold text-slate-600">
                 {employee.position && (
-                  <span className="flex items-center gap-1 text-slate-700">
-                    <Briefcase className="w-3.5 h-3.5 text-violet-500" /> {employee.position.title}
+                  <span className="flex items-center gap-1.5 text-slate-700 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg">
+                    <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>{employee.position.title}</span>
+                  </span>
+                )}
+                {employee.department && (
+                  <span className="flex items-center gap-1.5 text-slate-700 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg">
+                    <Building2 className="w-3.5 h-3.5 text-violet-600" />
+                    <span>{employee.department.name}</span>
+                  </span>
+                )}
+                {employee.email && (
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <Mail className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{employee.email}</span>
+                  </span>
+                )}
+                {employee.phone && (
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{employee.phone}</span>
                   </span>
                 )}
               </div>
-
-              {/* Identity & Badges: completely on the white card background */}
-              <div className="pb-1 pt-1 text-center sm:text-left">
-                <div className="flex flex-wrap items-center gap-2.5 justify-center sm:justify-start">
-                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                    {employee.name}
-                  </h1>
-                  <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100/90 px-2.5 py-0.5 rounded-lg font-mono shadow-2xs">
-                    {employee.employeeCode}
-                  </span>
-                  <Badge variant={statusVariantMap[employee.employmentStatus] || 'neutral'}>
-                    {employee.employmentStatus.replace('_', ' ')}
-                  </Badge>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-y-2 gap-x-3.5 mt-2.5 justify-center sm:justify-start text-xs font-semibold text-slate-600">
-                  {employee.position && (
-                    <span className="flex items-center gap-1.5 text-slate-700 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg">
-                      <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>{employee.position.title}</span>
-                    </span>
-                  )}
-                  {employee.department && (
-                    <span className="flex items-center gap-1.5 text-slate-700 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg">
-                      <Building2 className="w-3.5 h-3.5 text-violet-600" />
-                      <span>{employee.department.name}</span>
-                    </span>
-                  )}
-                  {employee.email && (
-                    <span className="flex items-center gap-1.5 text-slate-500">
-                      <Mail className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{employee.email}</span>
-                    </span>
-                  )}
-                  {employee.phone && (
-                    <span className="flex items-center gap-1.5 text-slate-500">
-                      <Phone className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{employee.phone}</span>
-                    </span>
-                  )}
-                </div>
-              </div>
             </div>
+          </div>
 
           <div className="flex gap-2 w-full sm:w-auto">
             <Button
