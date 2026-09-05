@@ -1,5 +1,5 @@
-import prisma from "../../lib/prisma";
-
+import { Prisma } from "@prisma/client";
+import { prisma } from "../../config/database"
 import {
   AllocationCreateInput,
   AllocationListInput,
