@@ -54,11 +54,12 @@ export async function handleGoogleAuth(req: AuthenticatedRequest, res: Response)
 
 export async function handleMe(req: AuthenticatedRequest, res: Response) {
   try {
-    if (!req.user || !req.user.userId) {
+    const userId = req.user?.id || (req.user as any)?.userId;
+    if (!req.user || !userId) {
       return sendError(res, 'UNAUTHORIZED', 'Authentication required', 401);
     }
 
-    const profile = await getCurrentUserProfile(req.user.userId);
+    const profile = await getCurrentUserProfile(userId);
     return sendSuccess(res, profile, 200);
   } catch (error) {
     if (error instanceof AppError) {
