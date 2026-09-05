@@ -507,4 +507,99 @@ export interface EmployeeSummary {
   };
 }
 
+// Time Off / Leave Management Types (matches harmin/timeoff backend module)
+export type LeaveUnit = 'DAY' | 'HOUR';
+export type AllocationStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+export type LeaveRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+export interface LeaveType {
+  id: string;
+  name: string;
+  code: string;
+  unit: LeaveUnit;
+  requiresAllocation: boolean;
+  requiresApproval: boolean;
+  payrollDeductible: boolean;
+  maxConsecutiveUnits?: number | null;
+  isActive: boolean;
+}
+
+export interface CreateLeaveTypeDTO {
+  name: string;
+  code: string;
+  unit?: LeaveUnit;
+  requiresAllocation?: boolean;
+  requiresApproval?: boolean;
+  payrollDeductible?: boolean;
+  maxConsecutiveUnits?: number | null;
+  isActive?: boolean;
+}
+
+export interface LeaveAllocation {
+  id: string;
+  employeeId: string;
+  employee?: {
+    id: string;
+    name: string;
+    employeeCode: string;
+  } | null;
+  leaveTypeId: string;
+  leaveType?: {
+    id: string;
+    name: string;
+    code: string;
+    unit: LeaveUnit;
+  } | null;
+  validFrom: string;
+  validTo: string;
+  allocatedUnits: number;
+  usedUnits: number;
+  status: AllocationStatus;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+}
+
+export interface CreateAllocationDTO {
+  employeeId: string;
+  leaveTypeId: string;
+  validFrom: string;
+  validTo: string;
+  allocatedUnits: number;
+  status?: AllocationStatus;
+}
+
+export interface LeaveRequest {
+  id: string;
+  employeeId: string;
+  employee?: {
+    id: string;
+    name: string;
+    employeeCode: string;
+  } | null;
+  leaveTypeId: string;
+  leaveType?: {
+    id: string;
+    name: string;
+    code: string;
+    unit: LeaveUnit;
+  } | null;
+  allocationId?: string | null;
+  startDate: string;
+  endDate: string;
+  requestedUnits: number;
+  reason?: string | null;
+  status: LeaveRequestStatus;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  createdAt?: string;
+}
+
+export interface CreateLeaveRequestDTO {
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  requestedUnits: number;
+  reason?: string;
+}
+
 

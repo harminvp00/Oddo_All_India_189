@@ -1,5 +1,4 @@
-import { Prisma } from "@prisma/client";
-import { prisma } from "../../lib/prisma";
+import prisma from "../../lib/prisma";
 
 import {
   AllocationCreateInput,
@@ -30,13 +29,14 @@ function decimalNumber(value: unknown): number {
   if (typeof value === "number") return value;
   if (typeof value === "bigint") return Number(value);
 
-  if (
-    value &&
-    typeof value === "object" &&
-    "toNumber" in value &&
-    typeof (value as { toNumber?: unknown }).toNumber === "function"
-  ) {
-    return (value as { toNumber: () => number }).toNumber();
+  if (value && typeof value === "object") {
+    if ("toNumber" in value && typeof (value as { toNumber?: unknown }).toNumber === "function") {
+      return (value as { toNumber: () => number }).toNumber();
+    }
+    if ("d" in value && Array.isArray((value as any).d)) {
+      const v = value as { s?: number; e?: number; d: number[] };
+      return (v.s ?? 1) * Number(v.d.join(""));
+    }
   }
 
   return Number(value ?? 0);
@@ -71,13 +71,14 @@ function serialize(value: unknown): unknown {
 
   if (value instanceof Date) return value.toISOString();
 
-  if (
-    value &&
-    typeof value === "object" &&
-    "toNumber" in value &&
-    typeof (value as { toNumber?: unknown }).toNumber === "function"
-  ) {
-    return (value as { toNumber: () => number }).toNumber();
+  if (value && typeof value === "object") {
+    if ("toNumber" in value && typeof (value as { toNumber?: unknown }).toNumber === "function") {
+      return (value as { toNumber: () => number }).toNumber();
+    }
+    if ("d" in value && Array.isArray((value as any).d)) {
+      const v = value as { s?: number; e?: number; d: number[] };
+      return (v.s ?? 1) * Number(v.d.join(""));
+    }
   }
 
   if (Array.isArray(value)) {
@@ -148,11 +149,8 @@ export class TimeOffService {
           isActive: input.isActive,
         },
       });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
-      ) {
+    } catch (error: any) {
+      if (error?.code === "P2002") {
         throw new TimeOffServiceError(
           "DUPLICATE_LEAVE_TYPE",
           "Leave type name or code already exists",
@@ -194,11 +192,8 @@ export class TimeOffService {
             : {}),
         },
       });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
-      ) {
+    } catch (error: any) {
+      if (error?.code === "P2002") {
         throw new TimeOffServiceError(
           "DUPLICATE_LEAVE_TYPE",
           "Leave type name or code already exists",
@@ -206,10 +201,7 @@ export class TimeOffService {
         );
       }
 
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2025"
-      ) {
+      if (error?.code === "P2025") {
         throw new TimeOffServiceError(
           "LEAVE_TYPE_NOT_FOUND",
           "Leave type not found",
@@ -226,11 +218,8 @@ export class TimeOffService {
       return await prisma.leaveType.delete({
         where: { id },
       });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2025"
-      ) {
+    } catch (error: any) {
+      if (error?.code === "P2025") {
         throw new TimeOffServiceError(
           "LEAVE_TYPE_NOT_FOUND",
           "Leave type not found",
@@ -238,10 +227,7 @@ export class TimeOffService {
         );
       }
 
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2003"
-      ) {
+      if (error?.code === "P2003") {
         throw new TimeOffServiceError(
           "LEAVE_TYPE_IN_USE",
           "Leave type cannot be deleted because allocations or requests reference it",
@@ -639,7 +625,7 @@ export class TimeOffService {
     });
 
     return (
-      allocations.find((allocation) => {
+      allocations.find((allocation: any) => {
         const available = calculateAvailableUnits(
           decimalNumber(allocation.allocatedUnits),
           decimalNumber(allocation.usedUnits),
@@ -656,7 +642,7 @@ export class TimeOffService {
     actingUserId: bigint,
     allocationId?: bigint,
   ) {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: any) => {
       if (allocationId !== undefined) {
         const allocation = await tx.leaveAllocation.findUnique({
           where: { id: allocationId },
@@ -713,7 +699,7 @@ export class TimeOffService {
     id: bigint,
     actingUserId: bigint,
   ) {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: any) => {
       const request = await tx.leaveRequest.findUnique({
         where: { id },
       });
@@ -734,69 +720,74 @@ export class TimeOffService {
       }
 
       const requestedUnits = decimalNumber(request.requestedUnits);
+      const leaveType = await tx.leaveType.findUnique({
+        where: { id: request.leaveTypeId },
+      });
 
       let allocationId = request.allocationId;
 
-      if (!allocationId) {
-        const allocation = await tx.leaveAllocation.findFirst({
-          where: {
-            employeeId: request.employeeId,
-            leaveTypeId: request.leaveTypeId,
-            status: "APPROVED",
-            validFrom: { lte: request.startDate },
-            validTo: { gte: request.endDate },
-          },
-          orderBy: { validFrom: "asc" },
+      if (leaveType?.requiresAllocation) {
+        if (!allocationId) {
+          const allocation = await tx.leaveAllocation.findFirst({
+            where: {
+              employeeId: request.employeeId,
+              leaveTypeId: request.leaveTypeId,
+              status: "APPROVED",
+              validFrom: { lte: request.startDate },
+              validTo: { gte: request.endDate },
+            },
+            orderBy: { validFrom: "asc" },
+          });
+
+          if (!allocation) {
+            throw new TimeOffServiceError(
+              "INSUFFICIENT_LEAVE_BALANCE",
+              "Insufficient leave balance",
+            );
+          }
+
+          allocationId = allocation.id;
+        }
+
+        const allocation = await tx.leaveAllocation.findUnique({
+          where: { id: allocationId },
         });
 
         if (!allocation) {
+          throw new TimeOffServiceError(
+            "ALLOCATION_NOT_FOUND",
+            "Leave allocation not found",
+            404,
+          );
+        }
+
+        const available = calculateAvailableUnits(
+          decimalNumber(allocation.allocatedUnits),
+          decimalNumber(allocation.usedUnits),
+        );
+
+        if (available < requestedUnits) {
           throw new TimeOffServiceError(
             "INSUFFICIENT_LEAVE_BALANCE",
             "Insufficient leave balance",
           );
         }
 
-        allocationId = allocation.id;
-      }
-
-      const allocation = await tx.leaveAllocation.findUnique({
-        where: { id: allocationId },
-      });
-
-      if (!allocation) {
-        throw new TimeOffServiceError(
-          "ALLOCATION_NOT_FOUND",
-          "Leave allocation not found",
-          404,
-        );
-      }
-
-      const available = calculateAvailableUnits(
-        decimalNumber(allocation.allocatedUnits),
-        decimalNumber(allocation.usedUnits),
-      );
-
-      if (available < requestedUnits) {
-        throw new TimeOffServiceError(
-          "INSUFFICIENT_LEAVE_BALANCE",
-          "Insufficient leave balance",
-        );
-      }
-
-      await tx.leaveAllocation.update({
-        where: { id: allocationId },
-        data: {
-          usedUnits: {
-            increment: requestedUnits,
+        await tx.leaveAllocation.update({
+          where: { id: allocationId },
+          data: {
+            usedUnits: {
+              increment: requestedUnits,
+            },
           },
-        },
-      });
+        });
+      }
 
       return tx.leaveRequest.update({
         where: { id },
         data: {
           status: "APPROVED",
-          allocationId,
+          allocationId: allocationId ?? null,
           approvedBy: actingUserId,
           approvedAt: new Date(),
         },
@@ -805,7 +796,7 @@ export class TimeOffService {
   }
 
   async rejectLeaveRequest(id: bigint) {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: any) => {
       const request = await tx.leaveRequest.findUnique({
         where: { id },
       });
@@ -865,7 +856,7 @@ export class TimeOffService {
     id: bigint,
     employeeId: bigint,
   ) {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: any) => {
       const request = await tx.leaveRequest.findUnique({
         where: { id },
       });

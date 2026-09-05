@@ -9,6 +9,12 @@ import {
   Users,
   ShieldCheck,
   FileText,
+  CreditCard,
+  Receipt,
+  Layers,
+  Sliders,
+  BarChart3,
+  Clock,
 } from 'lucide-react';
 
 /**
@@ -40,6 +46,36 @@ export const mainNavItems: NavItem[] = [
     roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
   },
   {
+    label: 'Time Off',
+    path: '/time-off',
+    icon: React.createElement(CalendarDays, { className: "w-4 h-4" }),
+    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
+  },
+  {
+    label: 'Payruns & Payroll',
+    path: '/payroll/payruns',
+    icon: React.createElement(CreditCard, { className: "w-4 h-4" }),
+    roles: ['ADMIN', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER']
+  },
+  {
+    label: 'Payslips',
+    path: '/payslips',
+    icon: React.createElement(Receipt, { className: "w-4 h-4" }),
+    roles: ['ADMIN', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
+  },
+  {
+    label: 'Salary Structures',
+    path: '/salary-structures',
+    icon: React.createElement(Layers, { className: "w-4 h-4" }),
+    roles: ['ADMIN', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER']
+  },
+  {
+    label: 'Salary Rules',
+    path: '/salary-rules',
+    icon: React.createElement(Sliders, { className: "w-4 h-4" }),
+    roles: ['ADMIN', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER']
+  },
+  {
     label: 'Departments',
     path: '/departments',
     icon: React.createElement(Building2, { className: "w-4 h-4" }),
@@ -54,8 +90,14 @@ export const mainNavItems: NavItem[] = [
   {
     label: 'Working Schedules',
     path: '/schedules',
-    icon: React.createElement(CalendarDays, { className: "w-4 h-4" }),
+    icon: React.createElement(Clock, { className: "w-4 h-4" }),
     roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
+  },
+  {
+    label: 'Reports & Analytics',
+    path: '/reports',
+    icon: React.createElement(BarChart3, { className: "w-4 h-4" }),
+    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_MANAGER']
   },
   {
     label: 'User Management',
