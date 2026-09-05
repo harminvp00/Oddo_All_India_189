@@ -1,41 +1,10 @@
-import prisma from '../../config/database';
+import { DepartmentRepository } from './repository';
 import { CreateDepartmentInput, UpdateDepartmentInput, DepartmentFilterInput } from './validation';
 
 export class DepartmentService {
   static async listDepartments(filters: DepartmentFilterInput) {
-    const { search, isActive, page = 1, limit = 20 } = filters;
-    const skip = (page - 1) * limit;
-
-    const where: any = {};
-
-    if (isActive !== undefined) {
-      where.is_active = isActive;
-    }
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' as const } },
-        { code: { contains: search, mode: 'insensitive' as const } },
-      ];
-    }
-
-    const [total, items] = await Promise.all([
-      prisma.departments.count({ where }),
-      prisma.departments.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { name: 'asc' },
-        include: {
-          _count: {
-            select: {
-              employees: true,
-              contracts: true,
-            },
-          },
-        },
-      }),
-    ]);
+    const { page = 1, limit = 20 } = filters;
+    const { total, items } = await DepartmentRepository.findMany(filters);
 
     const formatted = items.map((dept: any) => ({
       id: dept.id.toString(),
@@ -58,17 +27,7 @@ export class DepartmentService {
   }
 
   static async getDepartmentById(id: bigint) {
-    const department = await prisma.departments.findUnique({
-      where: { id },
-      include: {
-        _count: {
-          select: {
-            employees: true,
-            contracts: true,
-          },
-        },
-      },
-    });
+    const department = await DepartmentRepository.findById(id);
 
     if (!department) {
       return null;
@@ -85,14 +44,7 @@ export class DepartmentService {
   }
 
   static async createDepartment(input: CreateDepartmentInput) {
-    const existing = await prisma.departments.findFirst({
-      where: {
-        OR: [
-          { name: { equals: input.name, mode: 'insensitive' as const } },
-          { code: input.code },
-        ],
-      },
-    });
+    const existing = await DepartmentRepository.findByNameOrCode(input.name, input.code);
 
     if (existing) {
       const field = existing.code.toUpperCase() === input.code.toUpperCase() ? 'code' : 'name';
@@ -101,12 +53,10 @@ export class DepartmentService {
       throw error;
     }
 
-    const department = await prisma.departments.create({
-      data: {
-        name: input.name,
-        code: input.code,
-        is_active: input.isActive ?? true,
-      },
+    const department = await DepartmentRepository.create({
+      name: input.name,
+      code: input.code,
+      is_active: input.isActive ?? true,
     });
 
     return {
@@ -118,9 +68,7 @@ export class DepartmentService {
   }
 
   static async updateDepartment(id: bigint, input: UpdateDepartmentInput) {
-    const existing = await prisma.departments.findUnique({
-      where: { id },
-    });
+    const existing = await DepartmentRepository.findById(id);
 
     if (!existing) {
       const error = new Error('Department not found');
@@ -129,20 +77,7 @@ export class DepartmentService {
     }
 
     if (input.name || input.code) {
-      const conflictConditions: any[] = [];
-      if (input.name) {
-        conflictConditions.push({ name: { equals: input.name, mode: 'insensitive' as const } });
-      }
-      if (input.code) {
-        conflictConditions.push({ code: input.code });
-      }
-
-      const conflict = await prisma.departments.findFirst({
-        where: {
-          id: { not: id },
-          OR: conflictConditions,
-        },
-      });
+      const conflict = await DepartmentRepository.findByNameOrCode(input.name, input.code, id);
 
       if (conflict) {
         const field = input.code && conflict.code === input.code ? 'code' : 'name';
@@ -152,13 +87,10 @@ export class DepartmentService {
       }
     }
 
-    const updated = await prisma.departments.update({
-      where: { id },
-      data: {
-        ...(input.name !== undefined ? { name: input.name } : {}),
-        ...(input.code !== undefined ? { code: input.code } : {}),
-        ...(input.isActive !== undefined ? { is_active: input.isActive } : {}),
-      },
+    const updated = await DepartmentRepository.update(id, {
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.code !== undefined ? { code: input.code } : {}),
+      ...(input.isActive !== undefined ? { is_active: input.isActive } : {}),
     });
 
     return {
@@ -170,17 +102,7 @@ export class DepartmentService {
   }
 
   static async deleteDepartment(id: bigint) {
-    const existing = await prisma.departments.findUnique({
-      where: { id },
-      include: {
-        _count: {
-          select: {
-            employees: true,
-            contracts: true,
-          },
-        },
-      },
-    });
+    const existing = await DepartmentRepository.findById(id);
 
     if (!existing) {
       const error = new Error('Department not found');
@@ -191,9 +113,8 @@ export class DepartmentService {
     const hasRelations = existing._count.employees > 0 || existing._count.contracts > 0;
 
     if (hasRelations) {
-      const deactivated = await prisma.departments.update({
-        where: { id },
-        data: { is_active: false },
+      const deactivated = await DepartmentRepository.update(id, {
+        is_active: false,
       });
 
       return {
@@ -206,9 +127,7 @@ export class DepartmentService {
       };
     }
 
-    await prisma.departments.delete({
-      where: { id },
-    });
+    await DepartmentRepository.delete(id);
 
     return {
       id: id.toString(),
