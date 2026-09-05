@@ -489,4 +489,22 @@ export interface ContractFilterParams {
   limit?: number;
 }
 
+// Employee 360° Hub Summary Types (matches ashish-vekariya-emp-hub-backend-module)
+export interface EmployeeSummary {
+  employeeId: string;
+  activeContract: {
+    id: string;
+    contractNumber: string;
+    wage: number;
+    salaryStructureName: string;
+  } | null;
+  counts: {
+    contracts: number;
+    attendanceDays: number;
+    approvedLeaves: number;
+    remainingLeaveDays: number;
+    payslips: number;
+  };
+}
+
 

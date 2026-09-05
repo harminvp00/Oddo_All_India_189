@@ -9,7 +9,7 @@ import { Alert } from '../../components/ui/Alert';
 import { employeeService } from '../../services/employeeService';
 import { contractService } from '../../services/contractService';
 import { ContractModal } from '../contracts/ContractModal';
-import type { Employee, EmploymentStatus, Contract } from '../../types';
+import type { Employee, EmploymentStatus, Contract, EmployeeSummary } from '../../types';
 import { 
   ArrowLeft, 
   Mail, 
@@ -25,6 +25,10 @@ import {
   Plus,
   IndianRupee,
   CheckCircle2,
+  CalendarDays,
+  Layers,
+  Activity,
+  Award,
 } from 'lucide-react';
 
 export const EmployeeDetailPage: React.FC = () => {
@@ -33,37 +37,34 @@ export const EmployeeDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
 
   const [employee, setEmployee] = useState<Employee | null>(null);
+  const [summary, setSummary] = useState<EmployeeSummary | null>(null);
   const [employeeContracts, setEmployeeContracts] = useState<Contract[]>([]);
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadContracts = async () => {
+  const loadData = async () => {
     if (!id) return;
     try {
-      const res = await contractService.listContracts({ employeeId: id, limit: 20 });
-      setEmployeeContracts(res.items);
-    } catch (e) {
-      console.error('Failed to load employee contracts:', e);
+      setLoading(true);
+      const [empData, summaryData, contractsRes] = await Promise.all([
+        employeeService.getEmployeeById(id),
+        employeeService.getEmployeeSummary(id).catch(() => null),
+        contractService.listContracts({ employeeId: id, limit: 20 }).catch(() => ({ items: [], meta: {} as any })),
+      ]);
+      setEmployee(empData);
+      setSummary(summaryData);
+      setEmployeeContracts(contractsRes.items || []);
+    } catch (err: any) {
+      console.error('Failed to load employee details:', err);
+      setError(err?.response?.data?.message || 'Employee profile not found or access denied.');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    async function loadEmployee() {
-      if (!id) return;
-      try {
-        setLoading(true);
-        const data = await employeeService.getEmployeeById(id);
-        setEmployee(data);
-        await loadContracts();
-      } catch (err: any) {
-        console.error('Failed to load employee details:', err);
-        setError(err?.response?.data?.message || 'Employee profile not found or access denied.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadEmployee();
+    loadData();
   }, [id]);
 
   const TABS = [
@@ -155,6 +156,75 @@ export const EmployeeDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 360° Employee Hub Summary Metric Cards */}
+      {summary && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 animate-fadeIn">
+          {/* Active Compensation */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Active Compensation</span>
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <IndianRupee className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <div className="text-lg font-black text-slate-900">
+                {summary.activeContract ? `₹${summary.activeContract.wage.toLocaleString('en-IN')}` : 'No Active CTC'}
+              </div>
+              <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                {summary.activeContract ? summary.activeContract.salaryStructureName : 'Under Draft / Unassigned'}
+              </div>
+            </div>
+          </div>
+
+          {/* Attendance Days */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Attendance Logged</span>
+              <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <div className="text-lg font-black text-slate-900">{summary.counts.attendanceDays} Days</div>
+              <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">Verified Check-ins</div>
+            </div>
+          </div>
+
+          {/* Leave Quota & Balance */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Leave Balance</span>
+              <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                <CalendarDays className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <div className="text-lg font-black text-slate-900">{summary.counts.remainingLeaveDays} Days Left</div>
+              <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                {summary.counts.approvedLeaves} leaves approved
+              </div>
+            </div>
+          </div>
+
+          {/* Payslips & Contracts Count */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Payroll & Records</span>
+              <div className="w-7 h-7 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center">
+                <FileText className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <div className="text-lg font-black text-slate-900">{summary.counts.payslips} Payslips</div>
+              <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                {summary.counts.contracts} contracts issued
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="bg-white rounded-2xl border border-slate-200/70 shadow-xs overflow-hidden">
@@ -380,7 +450,7 @@ export const EmployeeDetailPage: React.FC = () => {
         <ContractModal
           isOpen={isContractModalOpen}
           onClose={() => setIsContractModalOpen(false)}
-          onSuccess={loadContracts}
+          onSuccess={loadData}
           defaultEmployeeId={employee.id}
         />
       )}

@@ -1,6 +1,7 @@
 import { api } from './api';
 import type {
   Employee,
+  EmployeeSummary,
   CreateEmployeeDTO,
   UpdateEmployeeDTO,
   EmployeeFilterParams,
@@ -58,6 +59,14 @@ export const employeeService = {
    */
   updateEmployee: async (id: string, data: UpdateEmployeeDTO): Promise<Employee> => {
     const res = await api.patch<ApiResponse<Employee>>(`/employees/${id}`, data);
+    return res.data;
+  },
+
+  /**
+   * Get employee 360° Hub Summary metrics (contracts, attendance, leaves, payslips)
+   */
+  getEmployeeSummary: async (id: string): Promise<EmployeeSummary> => {
+    const res = await api.get<ApiResponse<EmployeeSummary>>(`/employees/${id}/summary`);
     return res.data;
   },
 
