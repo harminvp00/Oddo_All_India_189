@@ -6,6 +6,7 @@ import prisma from './src/config/database';
 import { env } from './src/config/env';
 import departmentsRouter from './src/modules/departments/routes';
 import positionsRouter from './src/modules/positions/routes';
+import schedulesRouter from './src/modules/schedules/routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,6 +33,7 @@ app.get('/api/health', async (req, res) => {
 // Module API Routes
 app.use('/api/departments', departmentsRouter);
 app.use('/api/job-positions', positionsRouter);
+app.use('/api/working-schedules', schedulesRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
