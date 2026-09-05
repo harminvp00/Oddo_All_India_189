@@ -1,194 +1,135 @@
-import { Request, Response } from "express";
+import { Request, Response } from 'express';
+import { EmployeeService } from './service';
 import {
   createEmployeeSchema,
   updateEmployeeSchema,
-  employeeQuerySchema,
-  employeeIdSchema,
-} from "./validation";
-import { EmployeeService, EmployeeServiceError } from "./service";
+  employeeFilterSchema,
+} from './validation';
+import { successResponse, errorResponse } from '../../utils/response';
 
-const employeeService = new EmployeeService();
-
-export const employeeController = {
-  async create(req: Request, res: Response) {
+export class EmployeeController {
+  static async list(req: Request, res: Response): Promise<void> {
     try {
-      const input = createEmployeeSchema.parse(req.body);
-      const employee = await employeeService.create(input);
+      const parsedFilters = employeeFilterSchema.safeParse(req.query);
+      if (!parsedFilters.success) {
+        errorResponse(res, 'VALIDATION_ERROR', 'Invalid query parameters', 400, parsedFilters.error.format());
+        return;
+      }
 
-      return res.status(201).json({
-        success: true,
-        data: serializeEmployee(employee),
-        message: "Employee created successfully",
-      });
-    } catch (error) {
-      return handleError(res, error);
+      const result = await EmployeeService.listEmployees(parsedFilters.data, req.user);
+      successResponse(res, result.items, 200, result.meta);
+    } catch (error: any) {
+      errorResponse(res, 'INTERNAL_SERVER_ERROR', error.message || 'Failed to list employees', 500);
     }
-  },
-
-  async list(req: Request, res: Response) {
-    try {
-      const input = employeeQuerySchema.parse(req.query);
-      const result = await employeeService.list(input);
-
-      return res.status(200).json({
-        success: true,
-        data: result.items.map(serializeEmployee),
-        meta: result.meta,
-      });
-    } catch (error) {
-      return handleError(res, error);
-    }
-  },
-
-  async getById(req: Request, res: Response) {
-    try {
-      const { id } = employeeIdSchema.parse(req.params);
-      const employee = await employeeService.getById(BigInt(id));
-
-      return res.status(200).json({
-        success: true,
-        data: serializeEmployee(employee),
-      });
-    } catch (error) {
-      return handleError(res, error);
-    }
-  },
-
-  async update(req: Request, res: Response) {
-    try {
-      const { id } = employeeIdSchema.parse(req.params);
-      const input = updateEmployeeSchema.parse(req.body);
-      const employee = await employeeService.update(BigInt(id), input);
-
-      return res.status(200).json({
-        success: true,
-        data: serializeEmployee(employee),
-        message: "Employee updated successfully",
-      });
-    } catch (error) {
-      return handleError(res, error);
-    }
-  },
-
-  async delete(req: Request, res: Response) {
-    try {
-      const { id } = employeeIdSchema.parse(req.params);
-      await employeeService.delete(BigInt(id));
-
-      return res.status(200).json({
-        success: true,
-        message: "Employee archived successfully",
-      });
-    } catch (error) {
-      return handleError(res, error);
-    }
-  },
-};
-
-function serializeEmployee(emp: any) {
-  if (!emp) return emp;
-
-  return {
-    id: emp.id?.toString(),
-    employeeCode: emp.employee_code,
-    firstName: emp.first_name,
-    lastName: emp.last_name,
-    name: `${emp.first_name || ""} ${emp.last_name || ""}`.trim(),
-    email: emp.users?.email || null,
-    phone: emp.phone || null,
-    dateOfBirth: emp.date_of_birth instanceof Date ? emp.date_of_birth.toISOString().split("T")[0] : emp.date_of_birth,
-    hireDate: emp.hire_date instanceof Date ? emp.hire_date.toISOString().split("T")[0] : emp.hire_date,
-    terminationDate: emp.termination_date instanceof Date ? emp.termination_date.toISOString().split("T")[0] : emp.termination_date,
-    employeeType: emp.employee_type,
-    employmentStatus: emp.employment_status,
-    departmentId: emp.department_id?.toString() || null,
-    department: emp.departments
-      ? {
-          id: emp.departments.id?.toString(),
-          name: emp.departments.name,
-          code: emp.departments.code,
-        }
-      : undefined,
-    positionId: emp.position_id?.toString() || null,
-    position: emp.job_positions
-      ? {
-          id: emp.job_positions.id?.toString(),
-          title: emp.job_positions.title,
-        }
-      : undefined,
-    scheduleId: emp.schedule_id?.toString() || null,
-    schedule: emp.working_schedules
-      ? {
-          id: emp.working_schedules.id?.toString(),
-          name: emp.working_schedules.name,
-          scheduleType: emp.working_schedules.schedule_type,
-          weeklyHours: Number(emp.working_schedules.weekly_hours),
-        }
-      : undefined,
-    managerId: emp.manager_id?.toString() || null,
-    manager: emp.employees
-      ? {
-          id: emp.employees.id?.toString(),
-          employeeCode: emp.employees.employee_code,
-          name: `${emp.employees.first_name} ${emp.employees.last_name}`,
-        }
-      : undefined,
-    userId: emp.user_id?.toString() || null,
-    user: emp.users
-      ? {
-          id: emp.users.id?.toString(),
-          email: emp.users.email,
-          role: emp.users.role,
-          status: emp.users.status,
-        }
-      : undefined,
-    bankAccountName: emp.bank_account_name || null,
-    bankAccountNumber: emp.bank_account_number || null,
-    bankName: emp.bank_name || null,
-    ifscCode: emp.ifsc_code || null,
-    totalAttendance: emp._count?.attendance || 0,
-    totalContracts: emp._count?.contracts || 0,
-    createdAt: emp.created_at instanceof Date ? emp.created_at.toISOString() : emp.created_at,
-    updatedAt: emp.updated_at instanceof Date ? emp.updated_at.toISOString() : emp.updated_at,
-  };
-}
-
-function handleError(res: Response, error: unknown) {
-  if (error instanceof EmployeeServiceError) {
-    return res.status(error.statusCode).json({
-      success: false,
-      error: {
-        code: error.code,
-        message: error.message,
-        details: [],
-      },
-    });
   }
 
-  if (error instanceof Error && error.name === "ZodError") {
-    const zodError = error as Error & { issues?: Array<{ path: (string | number)[]; message: string }> };
+  static async getById(req: Request, res: Response): Promise<void> {
+    try {
+      const idParam = req.params.id as string;
+      let empId: bigint;
+      try {
+        empId = BigInt(idParam);
+      } catch {
+        errorResponse(res, 'INVALID_ID', 'Invalid employee ID format', 400);
+        return;
+      }
 
-    return res.status(400).json({
-      success: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Invalid request data",
-        details: (zodError.issues ?? []).map((issue) => ({
-          field: issue.path.join("."),
-          issue: issue.message,
-        })),
-      },
-    });
+      const employee = await EmployeeService.getEmployeeById(empId, req.user);
+      if (!employee) {
+        errorResponse(res, 'NOT_FOUND', 'Employee not found', 404);
+        return;
+      }
+
+      successResponse(res, employee);
+    } catch (error: any) {
+      if (error.code === 'FORBIDDEN') {
+        errorResponse(res, 'FORBIDDEN', error.message, 403);
+        return;
+      }
+      errorResponse(res, 'INTERNAL_SERVER_ERROR', error.message || 'Failed to get employee', 500);
+    }
   }
 
-  console.error("Employee controller error:", error);
+  static async create(req: Request, res: Response): Promise<void> {
+    try {
+      const parsed = createEmployeeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        errorResponse(res, 'VALIDATION_ERROR', 'Validation failed', 400, parsed.error.format());
+        return;
+      }
 
-  return res.status(500).json({
-    success: false,
-    error: {
-      code: "INTERNAL_SERVER_ERROR",
-      message: (error as Error)?.message || "An unexpected error occurred",
-      details: [],
-    },
-  });
+      const employee = await EmployeeService.createEmployee(parsed.data);
+      successResponse(res, employee, 201);
+    } catch (error: any) {
+      if (error.code === 'DUPLICATE_RESOURCE') {
+        errorResponse(res, 'DUPLICATE_RESOURCE', error.message, 409);
+        return;
+      }
+      if (error.code === 'INVALID_REFERENCE') {
+        errorResponse(res, 'INVALID_REFERENCE', error.message, 400);
+        return;
+      }
+      errorResponse(res, 'INTERNAL_SERVER_ERROR', error.message || 'Failed to create employee', 500);
+    }
+  }
+
+  static async update(req: Request, res: Response): Promise<void> {
+    try {
+      const idParam = req.params.id as string;
+      let empId: bigint;
+      try {
+        empId = BigInt(idParam);
+      } catch {
+        errorResponse(res, 'INVALID_ID', 'Invalid employee ID format', 400);
+        return;
+      }
+
+      const parsed = updateEmployeeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        errorResponse(res, 'VALIDATION_ERROR', 'Validation failed', 400, parsed.error.format());
+        return;
+      }
+
+      const employee = await EmployeeService.updateEmployee(empId, parsed.data);
+      successResponse(res, employee, 200);
+    } catch (error: any) {
+      if (error.code === 'NOT_FOUND') {
+        errorResponse(res, 'NOT_FOUND', error.message, 404);
+        return;
+      }
+      if (error.code === 'DUPLICATE_RESOURCE') {
+        errorResponse(res, 'DUPLICATE_RESOURCE', error.message, 409);
+        return;
+      }
+      if (error.code === 'INVALID_REFERENCE') {
+        errorResponse(res, 'INVALID_REFERENCE', error.message, 400);
+        return;
+      }
+      errorResponse(res, 'INTERNAL_SERVER_ERROR', error.message || 'Failed to update employee', 500);
+    }
+  }
+
+  static async delete(req: Request, res: Response): Promise<void> {
+    try {
+      const idParam = req.params.id as string;
+      let empId: bigint;
+      try {
+        empId = BigInt(idParam);
+      } catch {
+        errorResponse(res, 'INVALID_ID', 'Invalid employee ID format', 400);
+        return;
+      }
+
+      const result = await EmployeeService.deleteEmployee(empId);
+      successResponse(res, result, 200);
+    } catch (error: any) {
+      if (error.code === 'NOT_FOUND') {
+        errorResponse(res, 'NOT_FOUND', error.message, 404);
+        return;
+      }
+      errorResponse(res, 'INTERNAL_SERVER_ERROR', error.message || 'Failed to delete employee', 500);
+    }
+  }
 }
+
+export const employeeController = EmployeeController;

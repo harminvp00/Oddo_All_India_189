@@ -1,45 +1,33 @@
-import { Router } from "express";
-import { employeeController } from "./controller";
-import { authenticate, requireRole } from "../../middleware/auth";
+import { Router } from 'express';
+import { EmployeeController } from './controller';
+import { authenticate, requireRole } from '../../middleware/auth';
 
 const router = Router();
 
-const managerRoles = ["ADMIN", "HR_MANAGER", "HR_PAYROLL_MANAGER"] as const;
-const allRoles = ["EMPLOYEE", "HR_MANAGER", "HR_PAYROLL_USER", "HR_PAYROLL_MANAGER", "ADMIN"] as const;
+// Read operations: all authenticated roles
+router.get('/', authenticate, EmployeeController.list);
+router.get('/:id', authenticate, EmployeeController.getById);
 
+// Write operations: HR_MANAGER, HR_PAYROLL_MANAGER, and ADMIN
 router.post(
-  "/",
+  '/',
   authenticate,
-  requireRole([...managerRoles]),
-  employeeController.create,
-);
-
-router.get(
-  "/",
-  authenticate,
-  requireRole([...allRoles]),
-  employeeController.list,
-);
-
-router.get(
-  "/:id",
-  authenticate,
-  requireRole([...allRoles]),
-  employeeController.getById,
+  requireRole(['HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN']),
+  EmployeeController.create
 );
 
 router.patch(
-  "/:id",
+  '/:id',
   authenticate,
-  requireRole([...managerRoles]),
-  employeeController.update,
+  requireRole(['HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN']),
+  EmployeeController.update
 );
 
 router.delete(
-  "/:id",
+  '/:id',
   authenticate,
-  requireRole(["ADMIN", "HR_MANAGER"]),
-  employeeController.delete,
+  requireRole(['HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN']),
+  EmployeeController.delete
 );
 
 export default router;
