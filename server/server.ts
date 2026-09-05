@@ -8,6 +8,7 @@ import departmentsRouter from './src/modules/departments/routes';
 import positionsRouter from './src/modules/positions/routes';
 import schedulesRouter from './src/modules/schedules/routes';
 import employeesRouter from './src/modules/employees/routes';
+import contractsRouter from './src/modules/contracts/routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,6 +37,7 @@ app.use('/api/departments', departmentsRouter);
 app.use('/api/job-positions', positionsRouter);
 app.use('/api/working-schedules', schedulesRouter);
 app.use('/api/employees', employeesRouter);
+app.use('/api/contracts', contractsRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
