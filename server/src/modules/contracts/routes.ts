@@ -5,6 +5,7 @@ import { authenticate, requireRole } from '../../middleware/auth';
 const router = Router();
 
 // Read operations: all authenticated roles (self-service boundary enforced in service/controller)
+router.get('/salary-structures', authenticate, ContractController.listSalaryStructures);
 router.get('/', authenticate, ContractController.list);
 router.get('/:id', authenticate, ContractController.getById);
 

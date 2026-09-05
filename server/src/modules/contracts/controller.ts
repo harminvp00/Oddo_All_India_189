@@ -8,6 +8,15 @@ import {
 import { successResponse, errorResponse } from '../../utils/response';
 
 export class ContractController {
+  static async listSalaryStructures(req: Request, res: Response): Promise<void> {
+    try {
+      const structures = await ContractService.listSalaryStructures();
+      successResponse(res, structures, 200);
+    } catch (error: any) {
+      errorResponse(res, 'INTERNAL_SERVER_ERROR', error.message || 'Failed to list salary structures', 500);
+    }
+  }
+
   static async list(req: Request, res: Response): Promise<void> {
     try {
       const parsedFilters = contractFilterSchema.safeParse(req.query);

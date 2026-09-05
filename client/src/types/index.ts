@@ -403,4 +403,90 @@ export interface APIFilters {
   limit?: number;
 }
 
+// Contract & Salary Structure Types (matches ashish-vekariya-contract-overlap-backend-module)
+export type ContractStatus = 'DRAFT' | 'ACTIVE' | 'EXPIRED' | 'TERMINATED';
+
+export interface SalaryStructure {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface Contract {
+  id: string;
+  employeeId: string;
+  employee?: {
+    id: string;
+    employeeCode: string;
+    fullName: string;
+  } | null;
+  contractNumber: string;
+  startDate: string;
+  endDate?: string | null;
+  status: ContractStatus;
+  wage: number;
+  currencyCode: string;
+  salaryStructureId: string;
+  salaryStructure?: {
+    id: string;
+    name: string;
+  } | null;
+  departmentId?: string | null;
+  department?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
+  positionId?: string | null;
+  position?: {
+    id: string;
+    title: string;
+  } | null;
+  scheduleId?: string | null;
+  workingSchedule?: {
+    id: string;
+    name: string;
+    weeklyHours: number;
+  } | null;
+  payslipCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateContractDTO {
+  employeeId: string;
+  contractNumber: string;
+  startDate: string;
+  endDate?: string | null;
+  wage: number;
+  currencyCode?: string;
+  salaryStructureId: string;
+  departmentId?: string | null;
+  positionId?: string | null;
+  scheduleId?: string | null;
+  status?: ContractStatus;
+}
+
+export interface UpdateContractDTO {
+  contractNumber?: string;
+  startDate?: string;
+  endDate?: string | null;
+  wage?: number;
+  currencyCode?: string;
+  salaryStructureId?: string;
+  departmentId?: string | null;
+  positionId?: string | null;
+  scheduleId?: string | null;
+  status?: ContractStatus;
+}
+
+export interface ContractFilterParams {
+  employeeId?: string;
+  status?: ContractStatus | 'ALL';
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
 

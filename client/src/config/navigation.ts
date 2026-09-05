@@ -8,6 +8,7 @@ import {
   CalendarClock,
   Users,
   ShieldCheck,
+  FileText,
 } from 'lucide-react';
 
 /**
@@ -24,6 +25,12 @@ export const mainNavItems: NavItem[] = [
     label: 'Employees',
     path: '/employees',
     icon: React.createElement(Users, { className: "w-4 h-4" }),
+    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
+  },
+  {
+    label: 'Contracts',
+    path: '/contracts',
+    icon: React.createElement(FileText, { className: "w-4 h-4" }),
     roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
   },
   {

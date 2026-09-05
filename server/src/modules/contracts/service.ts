@@ -90,6 +90,34 @@ export function checkDateOverlap(
 }
 
 export class ContractService {
+  static async listSalaryStructures() {
+    let structures = await prisma.salary_structures.findMany({
+      where: { is_active: true },
+      orderBy: { name: 'asc' },
+    });
+
+    if (structures.length === 0) {
+      await prisma.salary_structures.createMany({
+        data: [
+          { name: 'Standard Full-Time CTC Structure', description: 'Base + HRA + Allowances + PF + ESI' },
+          { name: 'Executive Salary Structure', description: 'Executive CTC with Performance Bonus' },
+          { name: 'Contract / Consultant Structure', description: 'Fixed Monthly Professional Fee' },
+        ],
+      });
+      structures = await prisma.salary_structures.findMany({
+        where: { is_active: true },
+        orderBy: { name: 'asc' },
+      });
+    }
+
+    return structures.map((s) => ({
+      id: s.id.toString(),
+      name: s.name,
+      description: s.description,
+      isActive: s.is_active,
+    }));
+  }
+
   static async listContracts(filters: ContractFilterInput, user?: AuthenticatedUser) {
     const { page = 1, limit = 20, employeeId, status, search } = filters;
 

@@ -7,7 +7,9 @@ import { Tabs } from '../../components/ui/Tabs';
 import { Spinner } from '../../components/ui/Spinner';
 import { Alert } from '../../components/ui/Alert';
 import { employeeService } from '../../services/employeeService';
-import type { Employee, EmploymentStatus } from '../../types';
+import { contractService } from '../../services/contractService';
+import { ContractModal } from '../contracts/ContractModal';
+import type { Employee, EmploymentStatus, Contract } from '../../types';
 import { 
   ArrowLeft, 
   Mail, 
@@ -19,7 +21,10 @@ import {
   UserCheck,
   Clock,
   ShieldCheck,
-  FileText
+  FileText,
+  Plus,
+  IndianRupee,
+  CheckCircle2,
 } from 'lucide-react';
 
 export const EmployeeDetailPage: React.FC = () => {
@@ -28,8 +33,20 @@ export const EmployeeDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
 
   const [employee, setEmployee] = useState<Employee | null>(null);
+  const [employeeContracts, setEmployeeContracts] = useState<Contract[]>([]);
+  const [isContractModalOpen, setIsContractModalOpen] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const loadContracts = async () => {
+    if (!id) return;
+    try {
+      const res = await contractService.listContracts({ employeeId: id, limit: 20 });
+      setEmployeeContracts(res.items);
+    } catch (e) {
+      console.error('Failed to load employee contracts:', e);
+    }
+  };
 
   useEffect(() => {
     async function loadEmployee() {
@@ -38,6 +55,7 @@ export const EmployeeDetailPage: React.FC = () => {
         setLoading(true);
         const data = await employeeService.getEmployeeById(id);
         setEmployee(data);
+        await loadContracts();
       } catch (err: any) {
         console.error('Failed to load employee details:', err);
         setError(err?.response?.data?.message || 'Employee profile not found or access denied.');
@@ -51,7 +69,7 @@ export const EmployeeDetailPage: React.FC = () => {
   const TABS = [
     { id: 'overview', label: 'Overview' },
     { id: 'attendance', label: 'Attendance History' },
-    { id: 'contract', label: 'Contract & Schedule' },
+    { id: 'contract', label: 'Contracts & Overlap' },
     { id: 'payroll', label: 'Bank & Payroll' },
   ];
 
@@ -262,14 +280,84 @@ export const EmployeeDetailPage: React.FC = () => {
           )}
 
           {activeTab === 'contract' && (
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/70 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mx-auto font-bold">
-                <FileText className="w-6 h-6" />
+            <div className="space-y-4 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Employment Contracts</h3>
+                  <p className="text-xs text-slate-500">Active contracts, salary structures, and overlap history for this employee.</p>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<Plus className="w-4 h-4" />}
+                  onClick={() => setIsContractModalOpen(true)}
+                >
+                  Issue New Contract
+                </Button>
               </div>
-              <h3 className="text-sm font-bold text-slate-900">Contract & Shift Schedule</h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Assigned to: <strong className="text-slate-800">{employee.schedule?.name || 'Default 40h Standard'}</strong> ({employee.employeeType.replace('_', ' ')}).
-              </p>
+
+              {employeeContracts.length === 0 ? (
+                <div className="bg-white p-8 rounded-2xl border border-slate-200/70 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto font-bold">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900">No Contracts Issued Yet</h3>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    Click "Issue New Contract" above to define wage, salary structure, and effective dates for {employee.name}.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {employeeContracts.map((c) => (
+                    <div
+                      key={c.id}
+                      className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                          {c.contractNumber}
+                        </span>
+                        <Badge
+                          variant={
+                            c.status === 'ACTIVE'
+                              ? 'success'
+                              : c.status === 'DRAFT'
+                              ? 'neutral'
+                              : c.status === 'EXPIRED'
+                              ? 'warning'
+                              : 'danger'
+                          }
+                        >
+                          {c.status}
+                        </Badge>
+                      </div>
+
+                      <div className="text-sm">
+                        <div className="text-xs text-slate-400">Monthly Compensation</div>
+                        <div className="font-black text-lg text-emerald-600 mt-0.5">
+                          ₹{Number(c.wage).toLocaleString('en-IN')}{' '}
+                          <span className="text-xs text-slate-400 font-normal">INR / month</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100">
+                        <div>
+                          <div className="text-slate-400">Structure</div>
+                          <div className="font-bold text-slate-800 mt-0.5">
+                            {c.salaryStructure?.name || 'Standard CTC'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-slate-400">Period</div>
+                          <div className="font-bold text-slate-800 mt-0.5">
+                            {c.startDate} → {c.endDate || 'Open-ended'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -286,6 +374,16 @@ export const EmployeeDetailPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Issue Contract Modal */}
+      {isContractModalOpen && (
+        <ContractModal
+          isOpen={isContractModalOpen}
+          onClose={() => setIsContractModalOpen(false)}
+          onSuccess={loadContracts}
+          defaultEmployeeId={employee.id}
+        />
+      )}
     </div>
   );
 };
