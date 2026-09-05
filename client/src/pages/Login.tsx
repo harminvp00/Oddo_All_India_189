@@ -69,8 +69,11 @@ export const Login: React.FC = () => {
             endIcon={
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                onClick={() => setShowPassword((prev) => !prev)}
+                onMouseDown={(e) => e.preventDefault()}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? 'Hide password' : 'Show password'}
+                className="text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer p-0.5 rounded transition-colors pointer-events-auto"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
