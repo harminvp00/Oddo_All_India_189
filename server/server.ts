@@ -16,6 +16,12 @@ app.use(
   })
 );
 
+import authRoutes from './src/modules/auth/routes';
+import adminUserRoutes from './src/modules/admin/routes';
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', adminUserRoutes);
+
 app.get('/api/health', async (req, res) => {
   try {
     const userCount = await prisma.users.count();
