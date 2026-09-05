@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -11,67 +11,48 @@ import { employeeService } from '../../services/employeeService';
 import { DepartmentService } from '../../services/departmentService';
 import { PositionService } from '../../services/positionService';
 import { ScheduleService } from '../../services/scheduleService';
-import { contractService } from '../../services/contractService';
+import { calculateAge } from './NewEmployeePage';
+import { AvatarUpload } from '../../components/ui/AvatarUpload';
+import { getStoredAvatar, setStoredAvatar } from '../../utils/avatarUtils';
 import type { 
   Department, 
   JobPosition, 
   WorkingSchedule, 
   Employee, 
-  SalaryStructure,
-  CreateEmployeeDTO,
+  UpdateEmployeeDTO,
   EmployeeType,
   EmploymentStatus 
 } from '../../types';
 import { 
-  UserPlus, 
+  Pencil, 
   ArrowLeft, 
   Save, 
   Briefcase, 
   CreditCard, 
   Sparkles,
-  IndianRupee,
-  Dice5,
+  UserCheck,
+  Camera,
 } from 'lucide-react';
 
-export function calculateAge(dobString: string): number {
-  const dob = new Date(dobString);
-  const today = new Date();
-  if (isNaN(dob.getTime())) return 0;
-  let age = today.getFullYear() - dob.getFullYear();
-  const monthDiff = today.getMonth() - dob.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-    age--;
-  }
-  return age;
-}
-
-export const NewEmployeePage: React.FC = () => {
+export const EditEmployeePage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // Reference data loaded from live backend
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<JobPosition[]>([]);
   const [schedules, setSchedules] = useState<WorkingSchedule[]>([]);
   const [managers, setManagers] = useState<Employee[]>([]);
-  const [salaryStructures, setSalaryStructures] = useState<SalaryStructure[]>([]);
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Helper to generate unique random employee codes
-  const generateRandomCode = useCallback(() => {
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    return `EMP-${randomNum}`;
-  }, []);
-
-  // Form State
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [formData, setFormData] = useState<CreateEmployeeDTO>({
+  const [formData, setFormData] = useState<UpdateEmployeeDTO>({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     dateOfBirth: '',
-    hireDate: todayStr,
-    employeeCode: generateRandomCode(),
+    hireDate: '',
+    employeeCode: '',
     employeeType: 'FULL_TIME',
     employmentStatus: 'ACTIVE',
     departmentId: '',
@@ -82,59 +63,84 @@ export const NewEmployeePage: React.FC = () => {
     bankAccountName: '',
     bankAccountNumber: '',
     ifscCode: '',
-    wage: 85000,
-    salaryStructureId: '',
   });
 
+  const [employeeName, setEmployeeName] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Load live departments, positions, schedules, managers, and salary structures
   useEffect(() => {
-    async function loadOptions() {
+    async function loadData() {
+      if (!id) return;
       try {
         setInitialLoading(true);
-        const [deptRes, posRes, schedRes, empRes, structRes] = await Promise.all([
+        const [empData, deptRes, posRes, schedRes, empRes] = await Promise.all([
+          employeeService.getEmployeeById(id),
           DepartmentService.listDepartments({ limit: 100, isActive: 'true' }),
           PositionService.listPositions({ limit: 100, isActive: 'true' }),
           ScheduleService.listSchedules({ limit: 100, isActive: 'true' }),
           employeeService.listEmployees({ limit: 100, status: 'ACTIVE' }),
-          contractService.listSalaryStructures(),
         ]);
 
         if (deptRes.success) setDepartments(deptRes.data);
         if (posRes.success) setPositions(posRes.data);
         if (schedRes.success) setSchedules(schedRes.data);
-        setManagers(empRes.items || []);
-        setSalaryStructures(structRes || []);
+        setManagers((empRes.items || []).filter((m) => m.id !== id));
 
-        // Pre-select defaults if available
-        setFormData((prev) => ({
-          ...prev,
-          departmentId: prev.departmentId || (deptRes.data[0]?.id ?? ''),
-          positionId: prev.positionId || (posRes.data[0]?.id ?? ''),
-          scheduleId: prev.scheduleId || (schedRes.data[0]?.id ?? ''),
-          salaryStructureId: prev.salaryStructureId || (structRes[0]?.id ?? ''),
-        }));
+        if (empData) {
+          setEmployeeName(empData.name);
+          const initialPhoto = empData.avatarUrl || getStoredAvatar(id) || (empData.employeeCode ? getStoredAvatar(empData.employeeCode) : null) || null;
+          setAvatarUrl(initialPhoto);
+          setFormData({
+            firstName: empData.firstName || '',
+            lastName: empData.lastName || '',
+            email: empData.email || '',
+            phone: empData.phone || '',
+            dateOfBirth: empData.dateOfBirth ? empData.dateOfBirth.split('T')[0] : '',
+            hireDate: empData.hireDate ? empData.hireDate.split('T')[0] : '',
+            employeeCode: empData.employeeCode || '',
+            employeeType: empData.employeeType || 'FULL_TIME',
+            employmentStatus: empData.employmentStatus || 'ACTIVE',
+            departmentId: empData.departmentId || '',
+            positionId: empData.positionId || '',
+            managerId: empData.managerId || '',
+            scheduleId: empData.scheduleId || '',
+            bankName: empData.bankName || '',
+            bankAccountName: empData.bankAccountName || '',
+            bankAccountNumber: empData.bankAccountNumber || '',
+            ifscCode: empData.ifscCode || '',
+            avatarUrl: initialPhoto || undefined,
+          });
+        }
       } catch (err: any) {
-        console.error('Failed to load employee creation options:', err);
-        setError('Failed to fetch organizational metadata from server.');
+        console.error('Failed to load employee for editing:', err);
+        setError('Failed to fetch employee details or organizational metadata.');
       } finally {
         setInitialLoading(false);
       }
     }
 
-    loadOptions();
-  }, []);
+    loadData();
+  }, [id]);
 
-  const handleChange = (field: keyof CreateEmployeeDTO, value: any) => {
+  const handleAvatarChange = (newPhoto: string | null) => {
+    setAvatarUrl(newPhoto);
+    setFormData((prev) => ({ ...prev, avatarUrl: newPhoto || undefined }));
+    if (id) {
+      setStoredAvatar(id, newPhoto);
+      if (formData.employeeCode) {
+        setStoredAvatar(formData.employeeCode, newPhoto);
+      }
+    }
+  };
+
+  const handleChange = (field: keyof UpdateEmployeeDTO, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const validateForm = (): boolean => {
-    // 1. Mandatory Names & Length Limits
-    if (!formData.firstName.trim()) {
+    if (!formData.firstName?.trim()) {
       setError('First name is required.');
       return false;
     }
@@ -142,7 +148,7 @@ export const NewEmployeePage: React.FC = () => {
       setError('First name cannot exceed 80 characters.');
       return false;
     }
-    if (!formData.lastName.trim()) {
+    if (!formData.lastName?.trim()) {
       setError('Last name is required.');
       return false;
     }
@@ -151,7 +157,6 @@ export const NewEmployeePage: React.FC = () => {
       return false;
     }
 
-    // 2. Email Validation
     if (formData.email?.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email.trim())) {
@@ -160,7 +165,6 @@ export const NewEmployeePage: React.FC = () => {
       }
     }
 
-    // 3. Phone Validation
     if (formData.phone?.trim()) {
       const phoneRegex = /^[+0-9\s-]{7,30}$/;
       if (!phoneRegex.test(formData.phone.trim())) {
@@ -169,7 +173,6 @@ export const NewEmployeePage: React.FC = () => {
       }
     }
 
-    // 4. Date of Birth Strict Validation (18 <= Age <= 60)
     if (formData.dateOfBirth) {
       const age = calculateAge(formData.dateOfBirth);
       if (age < 18) {
@@ -182,19 +185,11 @@ export const NewEmployeePage: React.FC = () => {
       }
     }
 
-    // 5. Hire Date
-    if (!formData.hireDate) {
-      setError('Joining / Hire date is required.');
-      return false;
-    }
-
-    // 6. Employee Code
     if (formData.employeeCode && formData.employeeCode.trim().length > 30) {
       setError('Employee Code cannot exceed 30 characters.');
       return false;
     }
 
-    // 7. Bank Details
     if (formData.ifscCode?.trim() && formData.ifscCode.trim().length > 20) {
       setError('IFSC code cannot exceed 20 characters.');
       return false;
@@ -209,6 +204,7 @@ export const NewEmployeePage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!id) return;
     setError(null);
     setSuccessMsg(null);
 
@@ -219,12 +215,15 @@ export const NewEmployeePage: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const payload: CreateEmployeeDTO = {
+      const payload: UpdateEmployeeDTO = {
         ...formData,
         employeeCode: formData.employeeCode?.trim() || undefined,
+        firstName: formData.firstName?.trim(),
+        lastName: formData.lastName?.trim(),
         email: formData.email?.trim() || undefined,
         phone: formData.phone?.trim() || undefined,
         dateOfBirth: formData.dateOfBirth || undefined,
+        hireDate: formData.hireDate || undefined,
         departmentId: formData.departmentId || undefined,
         positionId: formData.positionId || undefined,
         managerId: formData.managerId || undefined,
@@ -235,17 +234,16 @@ export const NewEmployeePage: React.FC = () => {
         ifscCode: formData.ifscCode?.trim() || undefined,
       };
 
-      const created = await employeeService.createEmployee(payload);
+      const updated = await employeeService.updateEmployee(id, payload);
 
-      setSuccessMsg(`Employee ${created.name} (${created.employeeCode}) onboarded successfully!`);
+      setSuccessMsg(`Employee profile "${updated.name}" updated successfully!`);
 
-      // Redirect after short delay
       setTimeout(() => {
-        navigate('/employees');
+        navigate(`/employees/${id}`);
       }, 1200);
     } catch (err: any) {
-      console.error('Failed to create employee:', err);
-      setError(err?.response?.data?.error?.message || err?.response?.data?.message || err?.message || 'Failed to create employee profile.');
+      console.error('Failed to update employee:', err);
+      setError(err?.response?.data?.error?.message || err?.response?.data?.message || err?.message || 'Failed to update employee profile.');
     } finally {
       setSubmitting(false);
     }
@@ -254,18 +252,18 @@ export const NewEmployeePage: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn pb-16 max-w-5xl mx-auto">
       <PageHeader
-        title="Add New Employee"
-        description="Onboard a new team member with automated code generation, working shifts, and payroll provisioning."
-        icon={<UserPlus className="w-6 h-6 text-indigo-600" />}
+        title={`Edit Employee: ${employeeName || 'Profile'}`}
+        description="Update employee personal data, working shift, department assignment, or bank details."
+        icon={<Pencil className="w-6 h-6 text-indigo-600" />}
         action={
           <Button
             variant="outline"
             size="sm"
             leftIcon={<ArrowLeft className="w-4 h-4 text-slate-500" />}
-            onClick={() => navigate('/employees')}
+            onClick={() => navigate(`/employees/${id}`)}
             className="bg-white font-bold text-xs"
           >
-            Back to Directory
+            Back to Profile
           </Button>
         }
       />
@@ -275,10 +273,10 @@ export const NewEmployeePage: React.FC = () => {
         <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-purple-100 text-[11px] font-semibold mb-1.5 backdrop-blur-xs">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Employee Onboarding Wizard</span>
+            <span>Profile Editor</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">Create Employee Profile</h2>
-          <p className="text-xs text-purple-200/90 mt-0.5 font-medium">Fill in personal identity, shift allocations, and salary structure details.</p>
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">Edit {employeeName || 'Employee'}</h2>
+          <p className="text-xs text-purple-200/90 mt-0.5 font-medium">Modify attributes and commit changes safely to PostgreSQL.</p>
         </div>
       </div>
 
@@ -297,16 +295,27 @@ export const NewEmployeePage: React.FC = () => {
       {initialLoading ? (
         <div className="p-16 text-center flex flex-col items-center justify-center gap-3 bg-white rounded-3xl border border-slate-200/70 shadow-xs">
           <Spinner size="lg" />
-          <p className="text-xs font-bold text-slate-600">Loading organizational metadata (Departments, Positions, Shifts)...</p>
+          <p className="text-xs font-bold text-slate-600">Loading employee details from database...</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Card 0: Profile Photograph */}
+          <Card className="border-slate-200/80 shadow-xs rounded-3xl overflow-hidden">
+            <CardContent className="p-6">
+              <AvatarUpload
+                currentAvatarUrl={avatarUrl}
+                initials={`${formData.firstName?.[0] || ''}${formData.lastName?.[0] || ''}`.toUpperCase() || 'EM'}
+                onAvatarChange={handleAvatarChange}
+              />
+            </CardContent>
+          </Card>
+
           {/* Card 1: Personal Information */}
           <Card className="border-slate-200/80 shadow-xs rounded-3xl overflow-hidden">
             <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
-                  <UserPlus className="w-4 h-4" />
+                  <UserCheck className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <CardTitle className="text-sm font-extrabold text-slate-900">Personal & Contact Information</CardTitle>
@@ -320,7 +329,7 @@ export const NewEmployeePage: React.FC = () => {
                 required
                 maxLength={80}
                 placeholder="e.g. Rahul"
-                value={formData.firstName}
+                value={formData.firstName || ''}
                 onChange={(e) => handleChange('firstName', e.target.value)}
               />
               <Input
@@ -328,7 +337,7 @@ export const NewEmployeePage: React.FC = () => {
                 required
                 maxLength={80}
                 placeholder="e.g. Sharma"
-                value={formData.lastName}
+                value={formData.lastName || ''}
                 onChange={(e) => handleChange('lastName', e.target.value)}
               />
               <Input
@@ -337,7 +346,6 @@ export const NewEmployeePage: React.FC = () => {
                 placeholder="rahul.sharma@peoplepay360.com"
                 value={formData.email || ''}
                 onChange={(e) => handleChange('email', e.target.value)}
-                helperText="A system login user account will automatically be created/linked"
               />
               <Input
                 label="PHONE NUMBER"
@@ -370,41 +378,23 @@ export const NewEmployeePage: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 tracking-wide uppercase">
-                    EMPLOYEE CODE (ID)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => handleChange('employeeCode', generateRandomCode())}
-                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100/80 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
-                    title="Generate a new random unique Employee ID"
-                  >
-                    <Dice5 className="w-3.5 h-3.5" />
-                    <span>🎲 Generate Random ID</span>
-                  </button>
-                </div>
-                <Input
-                  placeholder="e.g. EMP-1092"
-                  maxLength={30}
-                  value={formData.employeeCode || ''}
-                  onChange={(e) => handleChange('employeeCode', e.target.value)}
-                  helperText="Unique identifier for HR records, attendance kiosk, and payslips"
-                />
-              </div>
+              <Input
+                label="EMPLOYEE CODE (ID)"
+                placeholder="e.g. EMP-1092"
+                maxLength={30}
+                value={formData.employeeCode || ''}
+                onChange={(e) => handleChange('employeeCode', e.target.value)}
+              />
 
               <Input
-                label="JOINING / HIRE DATE*"
+                label="JOINING / HIRE DATE"
                 type="date"
-                required
-                value={formData.hireDate}
+                value={formData.hireDate || ''}
                 onChange={(e) => handleChange('hireDate', e.target.value)}
               />
 
               <Select
-                label="DEPARTMENT*"
-                required
+                label="DEPARTMENT"
                 value={formData.departmentId || ''}
                 onChange={(e) => handleChange('departmentId', e.target.value)}
                 options={[
@@ -417,8 +407,7 @@ export const NewEmployeePage: React.FC = () => {
               />
 
               <Select
-                label="JOB POSITION / DESIGNATION*"
-                required
+                label="JOB POSITION / DESIGNATION"
                 value={formData.positionId || ''}
                 onChange={(e) => handleChange('positionId', e.target.value)}
                 options={[
@@ -457,8 +446,7 @@ export const NewEmployeePage: React.FC = () => {
               />
 
               <Select
-                label="EMPLOYEE TYPE*"
-                required
+                label="EMPLOYEE TYPE"
                 value={formData.employeeType || 'FULL_TIME'}
                 onChange={(e) => handleChange('employeeType', e.target.value as EmployeeType)}
                 options={[
@@ -471,8 +459,7 @@ export const NewEmployeePage: React.FC = () => {
               />
 
               <Select
-                label="EMPLOYMENT STATUS*"
-                required
+                label="EMPLOYMENT STATUS"
                 value={formData.employmentStatus || 'ACTIVE'}
                 onChange={(e) => handleChange('employmentStatus', e.target.value as EmploymentStatus)}
                 options={[
@@ -485,85 +472,7 @@ export const NewEmployeePage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Card 3: Salary Compensation & Contract Provisioning */}
-          <Card className="border-slate-200/80 shadow-xs rounded-3xl overflow-hidden border-l-4 border-l-emerald-500">
-            <CardHeader className="border-b border-slate-100 bg-emerald-50/40 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
-                  <IndianRupee className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <CardTitle className="text-sm sm:text-base font-extrabold text-slate-900">Salary Compensation & Initial Contract</CardTitle>
-                  <p className="text-[11px] text-slate-500 font-medium leading-normal">Define monthly gross compensation and statutory salary structure for instant payroll readiness</p>
-                </div>
-              </div>
-              <span className="self-start sm:self-auto text-[10px] font-extrabold text-emerald-700 bg-emerald-100/80 border border-emerald-200 px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0">
-                Automated Contract
-              </span>
-            </CardHeader>
-            <CardContent className="p-6 space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <Input
-                    label="MONTHLY GROSS WAGE / SALARY (₹ INR)*"
-                    type="number"
-                    min="0"
-                    step="500"
-                    placeholder="e.g. 85000"
-                    value={formData.wage ?? ''}
-                    onChange={(e) => handleChange('wage', Number(e.target.value))}
-                    helperText={formData.wage ? `₹${Number(formData.wage).toLocaleString('en-IN')} INR per month (Annual CTC: ₹${(Number(formData.wage) * 12).toLocaleString('en-IN')})` : 'Enter monthly gross CTC'}
-                  />
-
-                  {/* Quick Preset Salary Chips */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Presets:</span>
-                    {[35000, 50000, 85000, 110000, 125000, 150000].map((amt) => (
-                      <button
-                        key={amt}
-                        type="button"
-                        onClick={() => handleChange('wage', amt)}
-                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
-                          formData.wage === amt
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        ₹{(amt / 1000).toFixed(0)}k
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <Select
-                  label="STATUTORY SALARY STRUCTURE*"
-                  value={formData.salaryStructureId || ''}
-                  onChange={(e) => handleChange('salaryStructureId', e.target.value)}
-                  options={[
-                    { label: 'Select Salary Structure', value: '' },
-                    ...salaryStructures.map((s) => ({
-                      label: s.name,
-                      value: s.id,
-                    })),
-                  ]}
-                />
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-start gap-3">
-                <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
-                  <Sparkles className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-xs text-slate-600 space-y-0.5">
-                  <div className="font-bold text-slate-900">1-Click Automated Employment Contract Provisioning</div>
-                  <p className="text-slate-500 leading-relaxed">
-                    Upon onboarding, PeoplePay360 will automatically issue an active employment contract with the designated wage and rules, making {formData.firstName || 'the employee'} immediately ready for the next Payrun cycle.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Card 4: Bank & Payroll Information */}
+          {/* Card 3: Bank & Payroll Information */}
           <Card className="border-slate-200/80 shadow-xs rounded-3xl overflow-hidden">
             <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -613,7 +522,7 @@ export const NewEmployeePage: React.FC = () => {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => navigate('/employees')}
+              onClick={() => navigate(`/employees/${id}`)}
               disabled={submitting}
               className="text-slate-600 font-bold text-xs"
             >
@@ -627,7 +536,7 @@ export const NewEmployeePage: React.FC = () => {
               leftIcon={submitting ? <Spinner size="sm" /> : <Save className="w-4 h-4" />}
               className="font-bold text-sm px-6"
             >
-              {submitting ? 'Saving Employee...' : 'Save & Onboard Employee'}
+              {submitting ? 'Updating Employee...' : 'Save & Update Employee'}
             </Button>
           </div>
         </form>
@@ -636,4 +545,4 @@ export const NewEmployeePage: React.FC = () => {
   );
 };
 
-export default NewEmployeePage;
+export default EditEmployeePage;

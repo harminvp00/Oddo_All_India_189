@@ -72,6 +72,43 @@ export const PositionsPage: React.FC = () => {
     }
   }, [toastMessage]);
 
+  // Fixed Global Job Position Metrics from DB (does NOT change on table searching/filtering)
+  const [globalPosStats, setGlobalPosStats] = useState({
+    totalPositions: 0,
+    activeCount: 0,
+    inactiveCount: 0,
+    totalEmployees: 0,
+    totalContracts: 0,
+  });
+
+  const fetchGlobalPosStats = useCallback(async () => {
+    try {
+      const res = await PositionService.listPositions({ limit: 100 });
+      if (res.success && res.data) {
+        const allPositions = res.data;
+        const totalPositions = res.meta?.total || allPositions.length;
+        const activeCount = allPositions.filter((p) => p.isActive).length;
+        const inactiveCount = allPositions.filter((p) => !p.isActive).length;
+        const totalEmployees = allPositions.reduce((sum, p) => sum + (p.employeeCount || 0), 0);
+        const totalContracts = allPositions.reduce((sum, p) => sum + (p.contractCount || 0), 0);
+
+        setGlobalPosStats({
+          totalPositions,
+          activeCount,
+          inactiveCount,
+          totalEmployees,
+          totalContracts,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch global position stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGlobalPosStats();
+  }, [fetchGlobalPosStats]);
+
   // Load Job Positions
   const fetchPositions = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -105,14 +142,8 @@ export const PositionsPage: React.FC = () => {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchPositions(true);
+    fetchGlobalPosStats();
   };
-
-  // KPIs
-  const totalPositions = paginationMeta.total || positions.length;
-  const activeCount = positions.filter((p) => p.isActive).length;
-  const inactiveCount = positions.filter((p) => !p.isActive).length;
-  const totalEmployees = positions.reduce((sum, p) => sum + (p.employeeCount || 0), 0);
-  const totalContracts = positions.reduce((sum, p) => sum + (p.contractCount || 0), 0);
 
   // Open Create Modal
   const handleOpenAddModal = () => {
@@ -163,6 +194,7 @@ export const PositionsPage: React.FC = () => {
         setIsAddModalOpen(false);
         setToastMessage({ type: 'success', text: `Job position "${res.data.title}" created successfully!` });
         fetchPositions(true);
+        fetchGlobalPosStats();
       }
     } catch (err: any) {
       setFormErrors({ api: err.message || 'Failed to create job position' });
@@ -197,6 +229,7 @@ export const PositionsPage: React.FC = () => {
         setIsEditModalOpen(false);
         setToastMessage({ type: 'success', text: `Job position "${res.data.title}" updated successfully!` });
         fetchPositions(true);
+        fetchGlobalPosStats();
       }
     } catch (err: any) {
       setFormErrors({ api: err.message || 'Failed to update job position' });
@@ -217,6 +250,7 @@ export const PositionsPage: React.FC = () => {
         setPositions((prev) =>
           prev.map((p) => (p.id === pos.id ? { ...p, isActive: !p.isActive } : p))
         );
+        fetchGlobalPosStats();
       }
     } catch (err: any) {
       setToastMessage({ type: 'error', text: err.message || 'Failed to change job position status' });
@@ -236,6 +270,7 @@ export const PositionsPage: React.FC = () => {
         });
         setPosToDelete(null);
         fetchPositions(true);
+        fetchGlobalPosStats();
       }
     } catch (err: any) {
       setToastMessage({ type: 'error', text: err.message || 'Failed to delete job position' });
@@ -297,7 +332,7 @@ export const PositionsPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{totalPositions}</span>
+            <span className="text-2xl font-bold text-slate-900">{globalPosStats.totalPositions}</span>
             <span className="text-xs text-slate-500 font-medium">Designations</span>
           </div>
         </div>
@@ -310,8 +345,8 @@ export const PositionsPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-emerald-600">{activeCount}</span>
-            <span className="text-xs text-slate-400">/ {inactiveCount} Inactive</span>
+            <span className="text-2xl font-bold text-emerald-600">{globalPosStats.activeCount}</span>
+            <span className="text-xs text-slate-400">/ {globalPosStats.inactiveCount} Inactive</span>
           </div>
         </div>
 
@@ -323,7 +358,7 @@ export const PositionsPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{totalEmployees}</span>
+            <span className="text-2xl font-bold text-slate-900">{globalPosStats.totalEmployees}</span>
             <span className="text-xs text-slate-500 font-medium">Active employees</span>
           </div>
         </div>
@@ -336,7 +371,7 @@ export const PositionsPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{totalContracts}</span>
+            <span className="text-2xl font-bold text-slate-900">{globalPosStats.totalContracts}</span>
             <span className="text-xs text-slate-500 font-medium">Linked contracts</span>
           </div>
         </div>

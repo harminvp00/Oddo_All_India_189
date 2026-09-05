@@ -67,6 +67,10 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
       if (d2 >= d1) {
         const diffDays = Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
         setRequestedUnits(diffDays);
+        setError(null);
+      } else {
+        setRequestedUnits(0);
+        setError('End date cannot be before start date.');
       }
     }
   };
@@ -76,19 +80,38 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
     setError(null);
 
     if (!leaveTypeId) {
-      setError('Please select a leave type.');
+      setError('Please select a leave policy.');
       return;
     }
-    if (!startDate || !endDate) {
-      setError('Start date and End date are required.');
+    if (!startDate) {
+      setError('Start date is required.');
+      return;
+    }
+    if (!endDate) {
+      setError('End date is required.');
       return;
     }
     if (new Date(endDate) < new Date(startDate)) {
       setError('End date cannot be before start date.');
       return;
     }
-    if (requestedUnits <= 0) {
-      setError('Requested units must be greater than 0.');
+    if (isNaN(requestedUnits) || requestedUnits <= 0) {
+      setError('Requested units must be greater than 0 days.');
+      return;
+    }
+
+    if (
+      selectedType?.maxConsecutiveUnits &&
+      requestedUnits > Number(selectedType.maxConsecutiveUnits)
+    ) {
+      setError(
+        `Requested duration (${requestedUnits} days) exceeds the maximum consecutive limit of ${selectedType.maxConsecutiveUnits} days allowed for ${selectedType.name}.`
+      );
+      return;
+    }
+
+    if (reason.trim().length > 500) {
+      setError('Reason cannot exceed 500 characters.');
       return;
     }
 
@@ -134,7 +157,10 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
           label="LEAVE TYPE"
           required
           value={leaveTypeId}
-          onChange={(e) => setLeaveTypeId(e.target.value)}
+          onChange={(e) => {
+            setLeaveTypeId(e.target.value);
+            setError(null);
+          }}
           options={[
             { label: 'Select Leave Type...', value: '' },
             ...leaveTypes.map((t) => ({
@@ -152,6 +178,11 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
             <div>
               Quota / Allocation: <strong>{selectedType.requiresAllocation ? 'Required' : 'Unlimited / LWP'}</strong>
             </div>
+            {selectedType.maxConsecutiveUnits && (
+              <div>
+                Max Consecutive: <strong>{selectedType.maxConsecutiveUnits} days</strong>
+              </div>
+            )}
           </div>
         )}
 
@@ -168,6 +199,7 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
             label="END DATE"
             type="date"
             required
+            min={startDate}
             value={endDate}
             onChange={(e) => handleDateChange(startDate, e.target.value)}
           />
@@ -180,7 +212,10 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
           min="0.5"
           required
           value={requestedUnits}
-          onChange={(e) => setRequestedUnits(Number(e.target.value))}
+          onChange={(e) => {
+            setRequestedUnits(Number(e.target.value));
+            setError(null);
+          }}
           helperText="Calculated from date range. You can adjust for half-day requests (e.g. 0.5)."
         />
 
@@ -190,11 +225,18 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
           </label>
           <textarea
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
+            onChange={(e) => {
+              setReason(e.target.value);
+              if (e.target.value.length <= 500) setError(null);
+            }}
             placeholder="e.g. Medical checkup, family function, personal vacation..."
             rows={3}
+            maxLength={500}
             className="w-full px-3 py-2 text-sm text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 resize-none"
           />
+          <div className="text-[11px] text-slate-400 text-right mt-0.5">
+            {reason.length}/500 characters
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">

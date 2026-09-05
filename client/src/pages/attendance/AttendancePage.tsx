@@ -740,10 +740,11 @@ export const AttendancePage: React.FC = () => {
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
           {/* Search Box */}
           <div className="lg:col-span-4">
             <Input
+              label="Search"
               placeholder="Search employee, ID, or date..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -755,6 +756,7 @@ export const AttendancePage: React.FC = () => {
           {/* Status Filter */}
           <div className="lg:col-span-3">
             <Select
+              label="Status"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -774,6 +776,7 @@ export const AttendancePage: React.FC = () => {
           {/* Start Date */}
           <div className="lg:col-span-2">
             <Input
+              label="Start Date"
               type="date"
               value={startDate}
               onChange={(e) => {
@@ -787,6 +790,7 @@ export const AttendancePage: React.FC = () => {
           {/* End Date */}
           <div className="lg:col-span-2">
             <Input
+              label="End Date"
               type="date"
               value={endDate}
               onChange={(e) => {
@@ -798,7 +802,7 @@ export const AttendancePage: React.FC = () => {
           </div>
 
           {/* Reset Filters */}
-          <div className="lg:col-span-1 flex justify-end">
+          <div className="lg:col-span-1 flex justify-end pb-1">
             {(statusFilter !== 'all' || startDate || endDate || searchQuery) && (
               <Button
                 variant="ghost"

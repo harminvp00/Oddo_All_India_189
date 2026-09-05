@@ -168,13 +168,25 @@ export const ContractModal: React.FC<ContractModalProps> = ({
       setGeneralError('Contract Number is required.');
       return;
     }
+    const todayStr = new Date().toISOString().split('T')[0];
+
     if (!startDate) {
       setGeneralError('Start Date is required.');
       return;
     }
-    if (endDate && new Date(endDate) < new Date(startDate)) {
-      setGeneralError('End Date cannot be earlier than Start Date.');
+    if (startDate < todayStr && !isEditing) {
+      setGeneralError("Start Date cannot be in the past. Please select today's date or a future date.");
       return;
+    }
+    if (endDate) {
+      if (endDate < startDate) {
+        setGeneralError('End Date cannot be earlier than Start Date.');
+        return;
+      }
+      if (endDate < todayStr) {
+        setGeneralError("End Date cannot be in the past. Please select today's date or a future date.");
+        return;
+      }
     }
     if (!wage || Number(wage) <= 0) {
       setGeneralError('Wage must be greater than 0.');
@@ -238,17 +250,19 @@ export const ContractModal: React.FC<ContractModalProps> = ({
     }
   };
 
+  const todayStr = new Date().toISOString().split('T')[0];
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={isEditing ? 'Edit Employment Contract' : 'Create New Employment Contract'}
-      maxWidth="lg"
+      maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Overlap Warning Banner */}
         {overlapError && (
-          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 animate-fadeIn">
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3 animate-fadeIn">
             <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
             <div className="text-sm">
               <h4 className="font-bold text-rose-900">Contract Date Overlap Conflict</h4>
@@ -262,16 +276,16 @@ export const ContractModal: React.FC<ContractModalProps> = ({
 
         {/* General Error Banner */}
         {generalError && (
-          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800 flex items-center gap-2">
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-800 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>{generalError}</span>
           </div>
         )}
 
-        {/* Section 1: Employee & Contract Number */}
+        {/* Section 1: Target Employee & Contract Reference */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
-            label="EMPLOYEE"
+            label="EMPLOYEE*"
             required
             value={employeeId}
             onChange={(e) => handleEmployeeChange(e.target.value)}
@@ -286,7 +300,7 @@ export const ContractModal: React.FC<ContractModalProps> = ({
           />
 
           <Input
-            label="CONTRACT REFERENCE #"
+            label="CONTRACT REFERENCE #*"
             required
             value={contractNumber}
             onChange={(e) => setContractNumber(e.target.value.toUpperCase())}
@@ -298,23 +312,27 @@ export const ContractModal: React.FC<ContractModalProps> = ({
         {/* Section 2: Dates & Status */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Input
-            label="START DATE"
+            label="START DATE*"
             type="date"
             required
+            min={!isEditing ? todayStr : undefined}
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
+            helperText="Cannot be in the past"
           />
 
           <Input
             label="END DATE (OPTIONAL)"
             type="date"
+            min={startDate || todayStr}
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             placeholder="Open ended"
+            helperText="Cannot be in the past"
           />
 
           <Select
-            label="STATUS"
+            label="STATUS*"
             required
             value={status}
             onChange={(e) => setStatus(e.target.value as ContractStatus)}
@@ -327,15 +345,15 @@ export const ContractModal: React.FC<ContractModalProps> = ({
           />
         </div>
 
-        {/* Section 3: Salary Structure & Wage */}
-        <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-4">
-          <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-            <IndianRupee className="w-3.5 h-3.5 text-emerald-600" /> Compensation & Salary Structure
+        {/* Section 3: Salary Structure & Wage Card */}
+        <div className="p-4 sm:p-5 bg-slate-50/80 rounded-3xl border border-slate-200/80 space-y-4">
+          <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+            <IndianRupee className="w-4 h-4 text-emerald-600" /> Compensation & Salary Structure
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select
-              label="SALARY STRUCTURE"
+              label="SALARY STRUCTURE*"
               required
               value={salaryStructureId}
               onChange={(e) => setSalaryStructureId(e.target.value)}
@@ -349,10 +367,10 @@ export const ContractModal: React.FC<ContractModalProps> = ({
             />
 
             <Input
-              label="MONTHLY WAGE AMOUNT (₹ INR)"
+              label="MONTHLY WAGE AMOUNT (₹ INR)*"
               type="number"
-              min="10000"
-              step="0.01"
+              min="0"
+              step="500"
               required
               value={wage}
               onChange={(e) => setWage(e.target.value)}
@@ -370,7 +388,7 @@ export const ContractModal: React.FC<ContractModalProps> = ({
             value={departmentId}
             onChange={(e) => setDepartmentId(e.target.value)}
             options={[
-              { label: 'Inherit from Employee', value: '' },
+              { label: 'Inherit from Emp', value: '' },
               ...departments.map((dept) => ({
                 label: `${dept.name} (${dept.code})`,
                 value: dept.id,
@@ -383,7 +401,7 @@ export const ContractModal: React.FC<ContractModalProps> = ({
             value={positionId}
             onChange={(e) => setPositionId(e.target.value)}
             options={[
-              { label: 'Inherit from Employee', value: '' },
+              { label: 'Inherit from Emp', value: '' },
               ...positions.map((pos) => ({
                 label: pos.title,
                 value: pos.id,
@@ -396,7 +414,7 @@ export const ContractModal: React.FC<ContractModalProps> = ({
             value={scheduleId}
             onChange={(e) => setScheduleId(e.target.value)}
             options={[
-              { label: 'Inherit from Employee', value: '' },
+              { label: 'Inherit from Emp', value: '' },
               ...schedules.map((sched) => ({
                 label: sched.name,
                 value: sched.id,
@@ -410,7 +428,12 @@ export const ContractModal: React.FC<ContractModalProps> = ({
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" isLoading={isSubmitting || isLoadingDropdowns}>
+          <Button
+            type="submit"
+            variant="primary"
+            isLoading={isSubmitting || isLoadingDropdowns}
+            className="bg-[#714B67] hover:bg-[#5b3c53] text-white font-bold px-5"
+          >
             {isEditing ? 'Save Contract Changes' : 'Issue Contract'}
           </Button>
         </div>

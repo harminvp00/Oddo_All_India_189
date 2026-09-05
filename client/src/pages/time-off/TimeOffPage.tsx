@@ -86,22 +86,20 @@ export const TimeOffPage: React.FC = () => {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      if (activeTab === 'requests') {
-        const res = await timeOffService.listLeaveRequests({ limit: 100 });
-        setRequests(res.data);
-      } else if (activeTab === 'allocations') {
-        const res = await timeOffService.listAllocations({ limit: 100 });
-        setAllocations(res.data);
-      } else if (activeTab === 'types') {
-        const types = await timeOffService.listLeaveTypes();
-        setLeaveTypes(types);
-      }
+      const [reqRes, allocRes, typesRes] = await Promise.all([
+        timeOffService.listLeaveRequests({ limit: 100 }),
+        timeOffService.listAllocations({ limit: 100 }),
+        timeOffService.listLeaveTypes(),
+      ]);
+      setRequests(reqRes.data || []);
+      setAllocations(allocRes.data || []);
+      setLeaveTypes(typesRes || []);
     } catch (err) {
       console.error('Failed to fetch time off records:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -423,7 +421,7 @@ export const TimeOffPage: React.FC = () => {
       />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
             <Clock className="w-5 h-5" />
@@ -445,11 +443,21 @@ export const TimeOffPage: React.FC = () => {
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold">
+            <UserCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xl font-black text-slate-900">{allocations.length} Allocations</div>
+            <div className="text-xs text-slate-500 font-medium">Granted leave quotas & balances</div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xl font-black text-slate-900">{leaveTypes.length || 4} Policies</div>
+            <div className="text-xl font-black text-slate-900">{leaveTypes.length} Policies</div>
             <div className="text-xs text-slate-500 font-medium">Active paid & unpaid leave types</div>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { Register } from "../pages/Register";
 import { Dashboard } from "../pages/Dashboard";
 import { EmployeesPage } from "../pages/employees/EmployeesPage";
 import { NewEmployeePage } from "../pages/employees/NewEmployeePage";
+import { EditEmployeePage } from "../pages/employees/EditEmployeePage";
 import { EmployeeDetailPage } from "../pages/employees/EmployeeDetailPage";
 import { DepartmentsPage } from "../pages/departments/DepartmentsPage";
 import { PositionsPage } from "../pages/positions/PositionsPage";
@@ -60,6 +61,7 @@ export const App: React.FC = () => {
             <Route path="employees">
               <Route index element={<EmployeesPage />} />
               <Route path="new" element={<NewEmployeePage />} />
+              <Route path=":id/edit" element={<EditEmployeePage />} />
               <Route path=":id" element={<EmployeeDetailPage />} />
             </Route>
 

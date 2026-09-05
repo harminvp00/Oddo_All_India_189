@@ -17,6 +17,7 @@ import {
   Search, 
   Plus, 
   Eye, 
+  Pencil,
   Archive, 
   Building2, 
   Briefcase, 
@@ -231,6 +232,16 @@ export const EmployeesPage: React.FC = () => {
               title="View 360° Hub"
             >
               <Eye className="w-4 h-4" />
+            </Button>
+          </Link>
+          <Link to={`/employees/${item.id}/edit`}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1.5 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-slate-600"
+              title="Edit Employee"
+            >
+              <Pencil className="w-4 h-4" />
             </Button>
           </Link>
           {item.employmentStatus === 'ACTIVE' && (
