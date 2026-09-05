@@ -2,23 +2,16 @@ import type { NavItem } from '../types';
 import React from 'react';
 import { 
   LayoutDashboard, 
-  Users,
-  UserCircle,
   Building2,
   Briefcase,
   CalendarDays,
-  Settings2,
-  Shield,
-  FileText,
-  CalendarClock,
-  Calculator,
-  FileSpreadsheet,
-  Banknote,
-  PieChart
+  Users,
+  ShieldCheck,
 } from 'lucide-react';
 
 /**
- * Main Navigation Items for PeoplePay 360
+ * Main Navigation Items
+ * Role-based navigation with full support for Admin, HR, Payroll, and Employee roles.
  */
 export const mainNavItems: NavItem[] = [
   {
@@ -30,43 +23,31 @@ export const mainNavItems: NavItem[] = [
     label: 'Employees',
     path: '/employees',
     icon: React.createElement(Users, { className: "w-4 h-4" }),
-    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER'],
-  },
-  {
-    label: 'My Profile',
-    path: '/employees/me',
-    icon: React.createElement(UserCircle, { className: "w-4 h-4" }),
-    roles: ['EMPLOYEE'],
+    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
   },
   {
     label: 'Departments',
     path: '/departments',
     icon: React.createElement(Building2, { className: "w-4 h-4" }),
-    roles: ['ADMIN', 'HR_MANAGER'],
+    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
   },
   {
     label: 'Job Positions',
     path: '/positions',
     icon: React.createElement(Briefcase, { className: "w-4 h-4" }),
-    roles: ['ADMIN', 'HR_MANAGER'],
+    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
   },
   {
     label: 'Working Schedules',
     path: '/schedules',
     icon: React.createElement(CalendarDays, { className: "w-4 h-4" }),
-    roles: ['ADMIN', 'HR_MANAGER'],
+    roles: ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'EMPLOYEE']
   },
   {
     label: 'User Management',
     path: '/users',
-    icon: React.createElement(Shield, { className: "w-4 h-4" }),
-    roles: ['ADMIN'],
-  },
-  {
-    label: 'Settings',
-    path: '/settings',
-    icon: React.createElement(Settings2, { className: "w-4 h-4" }),
-    roles: ['ADMIN'],
+    icon: React.createElement(ShieldCheck, { className: "w-4 h-4" }),
+    roles: ['ADMIN']
   },
 ];
 

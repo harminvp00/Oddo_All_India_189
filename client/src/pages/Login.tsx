@@ -10,7 +10,8 @@ import { Mail, Lock, ArrowRight, UserCircle, Eye, EyeOff, ShieldCheck } from 'lu
 const DEMO_ACCOUNTS = [
   { role: 'ADMIN', email: 'admin@peoplepay360.com', name: 'System Admin', label: 'Admin' },
   { role: 'HR_MANAGER', email: 'sarah.connor@peoplepay360.com', name: 'Sarah Connor', label: 'HR Manager' },
-  { role: 'HR_PAYROLL_USER', email: 'krish.s@peoplepay360.com', name: 'Krish Solanki', label: 'HR Payroll User' },
+  { role: 'HR_PAYROLL_USER', email: 'krish.s@peoplepay360.com', name: 'Krish Solanki', label: 'Payroll User' },
+  { role: 'EMPLOYEE', email: 'employee@peoplepay360.com', name: 'Alex Morgan', label: 'Employee' },
 ];
 
 export const Login: React.FC = () => {

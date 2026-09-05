@@ -6,7 +6,6 @@ import {
   Briefcase, 
   CalendarDays,
   Users,
-  Shield,
   CheckCircle2, 
   ArrowRight,
   Database,
@@ -81,7 +80,7 @@ export const Dashboard: React.FC = () => {
               to="/departments"
               className="inline-flex items-center gap-2 px-4.5 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white border border-white/30 backdrop-blur-md font-bold text-xs sm:text-sm transition-all active:scale-95"
             >
-              <Building2 className="w-4 h-4 text-white" />
+              <Building2 className="w-4 h-4 text-indigo-200" />
               <span>Departments</span>
             </Link>
             <Link
@@ -103,7 +102,7 @@ export const Dashboard: React.FC = () => {
                 to="/users"
                 className="inline-flex items-center gap-2 px-4.5 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white border border-white/30 backdrop-blur-md font-bold text-xs sm:text-sm transition-all active:scale-95"
               >
-                <Shield className="w-4 h-4 text-emerald-300" />
+                <Users className="w-4 h-4 text-emerald-300" />
                 <span>Manage Users</span>
               </Link>
             )}
