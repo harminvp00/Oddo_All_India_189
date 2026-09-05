@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Central Single Source of Truth Brand Variables (Blue Theme) */
+    --brand: #2563eb;
+    --brand-hover: #1d4ed8;
+    --brand-active: #1e40af;
+    --brand-soft: #eff6ff;
+    --brand-subtle: #f0f9ff;
+    --brand-foreground: #ffffff;
+
+    /* Layered Surfaces (Navbar + Sidebar + Canvas + Cards) */
+    --shell-bg: #ffffff;
+    --shell-border: #dbeafe;
+    --canvas: #f0f7ff;
+    --surface: #ffffff;
+    --surface-muted: #f8fafc;
+
+    /* Typography Hierarchy Tokens */
+    --text: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+
+    /* Borders & Dividers */
+    --border: #dbeafe;
+    --border-strong: #bfdbfe;
+
+    /* Feedback Semantic Colors */
+    --success: #10b981;
+    --success-soft: #ecfdf5;
+    --warning: #f59e0b;
+    --warning-soft: #fffbeb;
+    --danger: #ef4444;
+    --danger-soft: #fef2f2;
+    --info: #2563eb;
+    --info-soft: #eff6ff;
+
+    /* Rounded Radii Tokens */
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--text);
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-hover);
+}
+
+/* Accessible focus outline */
+*:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Smooth keyframe animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideRight {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(0.97); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideRight {
+  animation: slideRight 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulseSubtle {
+  animation: pulseSubtle 2s ease-in-out infinite;
+}

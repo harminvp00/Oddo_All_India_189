@@ -1,0 +1,8 @@
+
+# most neccessary to ignore in (git add .)
+node_modules
+/trash
+.env
+/server/src/test
+
+
