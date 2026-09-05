@@ -9,6 +9,7 @@ import {
 import { brand } from '../../config/brand';
 import { navGroups } from '../../config/navigation';
 import { useAuth } from '../../context/AuthContext';
+import { getStoredAvatar } from '../../utils/avatarUtils';
 import type { NavItem } from '../../types';
 
 export interface SidebarProps {
@@ -127,26 +128,72 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* User Footer Profile */}
-      {(!collapsed || isMobile) && (
-        <div className="p-2.5 border-t border-slate-200 bg-slate-50/70 m-2 rounded-lg flex items-center justify-between">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <div className="w-7 h-7 rounded-md bg-[#F5EFF4] text-[#714B67] font-bold text-xs flex items-center justify-center shrink-0">
-              {user?.name ? user.name.charAt(0) : 'U'}
+      {(() => {
+        const userAvatar =
+          user?.avatar ||
+          (user?.email ? getStoredAvatar(user.email) : null) ||
+          (user?.employeeId ? getStoredAvatar(user.employeeId) : null) ||
+          null;
+
+        if (!collapsed || isMobile) {
+          return (
+            <div className="p-2.5 border-t border-slate-200 bg-slate-50/70 m-2 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-2 overflow-hidden">
+                {userAvatar ? (
+                  <img
+                    src={userAvatar}
+                    alt={user?.name || 'User'}
+                    className="w-7 h-7 rounded-md object-cover border border-purple-100 shrink-0 shadow-xs"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                      const fallback = (e.target as HTMLElement).nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div
+                  className={`w-7 h-7 rounded-md bg-[#F5EFF4] text-[#714B67] font-bold text-xs flex items-center justify-center shrink-0 ${
+                    userAvatar ? 'hidden' : ''
+                  }`}
+                >
+                  {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-semibold text-slate-900 truncate leading-tight">{user?.name || 'User'}</span>
+                  <span className="text-[10px] text-slate-500 truncate capitalize font-medium">{user?.role || 'Member'}</span>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                title="Log out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-semibold text-slate-900 truncate leading-tight">{user?.name || 'User'}</span>
-              <span className="text-[10px] text-slate-500 truncate capitalize font-medium">{user?.role || 'Member'}</span>
-            </div>
+          );
+        }
+
+        return (
+          <div className="p-2 border-t border-slate-200 flex justify-center m-1">
+            {userAvatar ? (
+              <img
+                src={userAvatar}
+                alt={user?.name || 'User'}
+                className="w-7 h-7 rounded-md object-cover border border-purple-100 shrink-0 shadow-xs"
+                title={user?.name || 'User'}
+              />
+            ) : (
+              <div
+                className="w-7 h-7 rounded-md bg-[#F5EFF4] text-[#714B67] font-bold text-xs flex items-center justify-center shrink-0"
+                title={user?.name || 'User'}
+              >
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+            )}
           </div>
-          <button
-            onClick={logout}
-            className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-            title="Log out"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 

@@ -428,7 +428,7 @@ export const NewEmployeePage: React.FC = () => {
                   <IndianRupee className="w-4 h-4" />
                 </div>
                 <div>
-                  <CardTitle className="text-sm font-extrabold text-slate-900">Salary Compensation & Initial Contract</CardTitle>
+                  <CardTitle className="text-sm font-extrabold text-slate-900 text-center">Salary Compensation & Initial Contract</CardTitle>
                   <p className="text-[11px] text-slate-500 font-medium">Define monthly gross compensation and statutory salary structure for instant payroll readiness</p>
                 </div>
               </div>

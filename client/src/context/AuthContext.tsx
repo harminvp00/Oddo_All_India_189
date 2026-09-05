@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { User, UserRole } from '../types';
-import { SplashScreen } from '../components/ui/SplashScreen';
-import { authService, type AuthUserResponse } from '../services/authService';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import type { User, UserRole } from "../types";
+import { SplashScreen } from "../components/ui/SplashScreen";
+import { authService, type AuthUserResponse } from "../services/authService";
 
 interface AuthContextType {
   user: User | null;
@@ -17,18 +17,35 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function mapAuthUser(apiUser: AuthUserResponse): User {
+import { getStoredAvatar } from "../utils/avatarUtils";
+
+function mapAuthUser(apiUser: any): User {
+  const avatar =
+    apiUser.avatarUrl ||
+    apiUser.avatar_url ||
+    apiUser.avatar ||
+    (apiUser.email ? getStoredAvatar(apiUser.email) : null) ||
+    (apiUser.employeeId ? getStoredAvatar(apiUser.employeeId) : null) ||
+    (apiUser.employee?.employeeCode ? getStoredAvatar(apiUser.employee.employeeCode) : null) ||
+    undefined;
+
   return {
-    id: apiUser.id,
-    name: apiUser.fullName || apiUser.email.split('@')[0],
+    id: apiUser.id?.toString?.() || String(apiUser.id),
+    name: apiUser.fullName || apiUser.full_name || apiUser.name || apiUser.email?.split("@")[0] || "User",
     email: apiUser.email,
-    role: apiUser.role as UserRole,
+    role: (apiUser.role as UserRole) || "EMPLOYEE",
     status: apiUser.status,
-    employeeId: apiUser.employeeId || (apiUser.employee ? apiUser.employee.id : null),
+    avatar: avatar || undefined,
+    employeeId:
+      apiUser.employeeId ||
+      apiUser.employee_id ||
+      (apiUser.employee ? (apiUser.employee.id?.toString?.() || apiUser.employee.id) : null),
   };
 }
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
@@ -36,8 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initial application setup & token / session restoration
   useEffect(() => {
     const restoreSession = async () => {
-      const token = localStorage.getItem('token');
-      const savedUser = localStorage.getItem('peoplepay_user');
+      const token = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("peoplepay_user");
 
       if (token) {
         try {
@@ -45,11 +62,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const profile = await authService.getCurrentUser();
           const mapped = mapAuthUser(profile);
           setUser(mapped);
-          localStorage.setItem('peoplepay_user', JSON.stringify(mapped));
+          localStorage.setItem("peoplepay_user", JSON.stringify(mapped));
         } catch (error) {
           // Token invalid or user disabled -> clear stale session
-          localStorage.removeItem('token');
-          localStorage.removeItem('peoplepay_user');
+          localStorage.removeItem("token");
+          localStorage.removeItem("peoplepay_user");
           setUser(null);
         }
       } else if (savedUser) {
@@ -66,14 +83,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     restoreSession();
   }, []);
 
-  const login = async (email: string, password = 'Password123!') => {
+  const login = async (email: string, password = "Password123!") => {
     setLoading(true);
     try {
       const response = await authService.login(email, password);
-      localStorage.setItem('token', response.token);
+      localStorage.setItem("token", response.token);
       const mapped = mapAuthUser(response.user);
       setUser(mapped);
-      localStorage.setItem('peoplepay_user', JSON.stringify(mapped));
+      localStorage.setItem("peoplepay_user", JSON.stringify(mapped));
     } finally {
       setLoading(false);
     }
@@ -83,10 +100,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const response = await authService.googleAuth(idToken);
-      localStorage.setItem('token', response.token);
+      localStorage.setItem("token", response.token);
       const mapped = mapAuthUser(response.user);
       setUser(mapped);
-      localStorage.setItem('peoplepay_user', JSON.stringify(mapped));
+      localStorage.setItem("peoplepay_user", JSON.stringify(mapped));
     } finally {
       setLoading(false);
     }
@@ -97,9 +114,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const profile = await authService.getCurrentUser();
       const mapped = mapAuthUser(profile);
       setUser(mapped);
-      localStorage.setItem('peoplepay_user', JSON.stringify(mapped));
-    } catch {
-      // Ignore refresh error
+      localStorage.setItem("peoplepay_user", JSON.stringify(mapped));
+    } catch (error) {
+      throw error;
     }
   };
 
@@ -112,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: `usr_${Date.now()}`,
         name,
         email,
-        role: 'EMPLOYEE',
+        role: "EMPLOYEE",
       });
     } finally {
       setLoading(false);
@@ -120,8 +137,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('peoplepay_user');
+    localStorage.removeItem("token");
+    localStorage.removeItem("peoplepay_user");
     setUser(null);
   };
 
@@ -139,7 +156,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshProfile,
       }}
     >
-      {initializing ? <SplashScreen message="Preparing PeoplePay 360..." /> : children}
+      {initializing ? (
+        <SplashScreen message="Preparing PeoplePay 360..." />
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 };
@@ -147,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
