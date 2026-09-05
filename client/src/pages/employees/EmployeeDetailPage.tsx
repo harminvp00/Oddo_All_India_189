@@ -9,6 +9,9 @@ import { Alert } from '../../components/ui/Alert';
 import { employeeService } from '../../services/employeeService';
 import { contractService } from '../../services/contractService';
 import { ContractModal } from '../contracts/ContractModal';
+import { Modal } from '../../components/ui/Modal';
+import { AvatarUpload } from '../../components/ui/AvatarUpload';
+import { getStoredAvatar, setStoredAvatar } from '../../utils/avatarUtils';
 import type { Employee, EmploymentStatus, Contract, EmployeeSummary } from '../../types';
 import { 
   ArrowLeft, 
@@ -29,6 +32,7 @@ import {
   Layers,
   Activity,
   Award,
+  Camera,
 } from 'lucide-react';
 
 export const EmployeeDetailPage: React.FC = () => {
@@ -40,6 +44,8 @@ export const EmployeeDetailPage: React.FC = () => {
   const [summary, setSummary] = useState<EmployeeSummary | null>(null);
   const [employeeContracts, setEmployeeContracts] = useState<Contract[]>([]);
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +59,7 @@ export const EmployeeDetailPage: React.FC = () => {
         contractService.listContracts({ employeeId: id, limit: 20 }).catch(() => ({ items: [], meta: {} as any })),
       ]);
       setEmployee(empData);
+      setAvatarUrl(empData.avatarUrl || getStoredAvatar(id) || getStoredAvatar(empData.employeeCode) || null);
       setSummary(summaryData);
       setEmployeeContracts(contractsRes.items || []);
     } catch (err: any) {
@@ -66,6 +73,16 @@ export const EmployeeDetailPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [id]);
+
+  const handleSavePhoto = (newPhoto: string | null) => {
+    if (!id || !employee) return;
+    setAvatarUrl(newPhoto);
+    if (newPhoto) {
+      setStoredAvatar(id, newPhoto);
+      setStoredAvatar(employee.employeeCode, newPhoto);
+    }
+    setIsPhotoModalOpen(false);
+  };
 
   const TABS = [
     { id: 'overview', label: 'Overview' },
@@ -109,19 +126,34 @@ export const EmployeeDetailPage: React.FC = () => {
     <div className="space-y-6 animate-fadeIn pb-16 max-w-6xl mx-auto">
       {/* Header Profile Card */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200/70 shadow-xs relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-r from-indigo-600 via-indigo-700 to-slate-900" />
+        <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-r from-[#714B67] via-[#5b3c53] to-slate-900" />
         
         <div className="relative mt-10 flex flex-col sm:flex-row gap-6 items-start sm:items-end justify-between">
           <div className="flex flex-col sm:flex-row gap-5 items-center sm:items-end">
-            <div className="w-24 h-24 rounded-2xl bg-white p-1.5 shadow-lg shrink-0">
-              <div className="w-full h-full rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-extrabold text-2xl flex items-center justify-center">
-                {initials}
+            <div className="relative group w-24 h-24 rounded-2xl bg-white p-1.5 shadow-lg shrink-0">
+              <div className="w-full h-full rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={employee.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#714B67] to-slate-800 text-white font-extrabold text-2xl flex items-center justify-center">
+                    {initials}
+                  </div>
+                )}
               </div>
+              <button
+                type="button"
+                onClick={() => setIsPhotoModalOpen(true)}
+                className="absolute inset-1.5 rounded-xl bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer"
+                title="Change profile picture"
+              >
+                <Camera className="w-5 h-5" />
+                <span className="text-[9px] font-bold">Edit</span>
+              </button>
             </div>
             <div className="pb-1 text-center sm:text-left">
               <div className="flex items-center gap-2 justify-center sm:justify-start">
                 <h1 className="text-2xl font-extrabold text-slate-900">{employee.name}</h1>
-                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full font-mono">
+                <span className="text-xs font-bold text-[#714B67] bg-[#714B67]/10 px-2 py-0.5 rounded-full font-mono">
                   {employee.employeeCode}
                 </span>
               </div>
@@ -144,6 +176,15 @@ export const EmployeeDetailPage: React.FC = () => {
           </div>
 
           <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Camera className="w-4 h-4 text-slate-500" />}
+              onClick={() => setIsPhotoModalOpen(true)}
+              className="bg-white font-bold text-xs"
+            >
+              Update Photo
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -453,6 +494,29 @@ export const EmployeeDetailPage: React.FC = () => {
           onSuccess={loadData}
           defaultEmployeeId={employee.id}
         />
+      )}
+
+      {/* Change Photo Modal */}
+      {isPhotoModalOpen && (
+        <Modal
+          isOpen={isPhotoModalOpen}
+          onClose={() => setIsPhotoModalOpen(false)}
+          title={`Update Profile Photo: ${employee.name}`}
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <AvatarUpload
+              currentAvatarUrl={avatarUrl}
+              initials={initials}
+              onAvatarChange={handleSavePhoto}
+            />
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <Button variant="ghost" size="sm" onClick={() => setIsPhotoModalOpen(false)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

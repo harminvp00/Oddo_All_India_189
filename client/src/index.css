@@ -2,45 +2,50 @@
 
 @layer base {
   :root {
-    /* Central Single Source of Truth Brand Variables (Blue Theme) */
-    --brand: #2563eb;
-    --brand-hover: #1d4ed8;
-    --brand-active: #1e40af;
-    --brand-soft: #eff6ff;
-    --brand-subtle: #f0f9ff;
-    --brand-foreground: #ffffff;
+    /* Central Single Source of Truth Brand Variables (Odoo Purple + Teal) */
+    --brand: #714B67;
+    --brand-hover: #5B3A52;
+    --brand-active: #482C40;
+    --brand-soft: #F5EFF4;
+    --brand-subtle: #FAF6F9;
+    --brand-foreground: #FFFFFF;
+
+    --brand-secondary: #017E84;
+    --brand-secondary-hover: #00686D;
+    --brand-secondary-soft: #E6F4F4;
 
     /* Layered Surfaces (Navbar + Sidebar + Canvas + Cards) */
-    --shell-bg: #ffffff;
-    --shell-border: #dbeafe;
-    --canvas: #f0f7ff;
-    --surface: #ffffff;
-    --surface-muted: #f8fafc;
+    --shell-bg: #FFFFFF;
+    --shell-border: #E5E7EB;
+    --canvas: #F7F7F8;
+    --surface: #FFFFFF;
+    --surface-muted: #FAFAFA;
 
     /* Typography Hierarchy Tokens */
-    --text: #0f172a;
-    --text-secondary: #475569;
-    --text-muted: #64748b;
+    --text: #1F2937;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
 
     /* Borders & Dividers */
-    --border: #dbeafe;
-    --border-strong: #bfdbfe;
+    --border: #E5E7EB;
+    --border-subtle: #F0F0F2;
+    --border-strong: #D1D5DB;
 
     /* Feedback Semantic Colors */
-    --success: #10b981;
-    --success-soft: #ecfdf5;
-    --warning: #f59e0b;
-    --warning-soft: #fffbeb;
-    --danger: #ef4444;
-    --danger-soft: #fef2f2;
-    --info: #2563eb;
-    --info-soft: #eff6ff;
+    --success: #10B981;
+    --success-soft: #ECFDF5;
+    --warning: #F59E0B;
+    --warning-soft: #FFFBEB;
+    --danger: #EF4444;
+    --danger-soft: #FEF2F2;
+    --info: #017E84;
+    --info-soft: #E6F4F4;
 
-    /* Rounded Radii Tokens */
-    --radius-sm: 0.5rem;
-    --radius-md: 0.75rem;
-    --radius-lg: 1rem;
-    --radius-xl: 1.25rem;
+    /* Rounded Radii Tokens (6px, 8px, 12px, 16px) */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
   }
 
   body {
@@ -51,6 +56,7 @@
     -moz-osx-font-smoothing: grayscale;
     margin: 0;
     padding: 0;
+    letter-spacing: -0.011em;
   }
 }
 

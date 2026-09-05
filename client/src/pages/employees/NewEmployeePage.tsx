@@ -20,6 +20,8 @@ import type {
   EmployeeType,
   EmploymentStatus 
 } from '../../types';
+import { AvatarUpload } from '../../components/ui/AvatarUpload';
+import { setStoredAvatar } from '../../utils/avatarUtils';
 import { 
   UserPlus, 
   ArrowLeft, 
@@ -30,7 +32,8 @@ import {
   CheckCircle2, 
   Calendar,
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  Camera
 } from 'lucide-react';
 
 export const NewEmployeePage: React.FC = () => {
@@ -42,6 +45,7 @@ export const NewEmployeePage: React.FC = () => {
   const [schedules, setSchedules] = useState<WorkingSchedule[]>([]);
   const [managers, setManagers] = useState<Employee[]>([]);
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Form State
   const todayStr = new Date().toISOString().split('T')[0];
@@ -63,6 +67,7 @@ export const NewEmployeePage: React.FC = () => {
     bankAccountName: '',
     bankAccountNumber: '',
     ifscCode: '',
+    avatarUrl: '',
   });
 
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -152,9 +157,17 @@ export const NewEmployeePage: React.FC = () => {
         bankAccountNumber: formData.bankAccountNumber?.trim() || undefined,
         bankName: formData.bankName?.trim() || undefined,
         ifscCode: formData.ifscCode?.trim() || undefined,
+        avatarUrl: avatarUrl || undefined,
       };
 
       const created = await employeeService.createEmployee(payload);
+
+      // Persist profile picture locally for instant rendering
+      if (avatarUrl) {
+        setStoredAvatar(created.id, avatarUrl);
+        setStoredAvatar(created.employeeCode, avatarUrl);
+      }
+
       setSuccessMsg(`Employee ${created.name} (${created.employeeCode}) onboarded successfully!`);
 
       // Redirect after short delay
@@ -207,6 +220,26 @@ export const NewEmployeePage: React.FC = () => {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Card 0: Profile Photo & Avatar */}
+          <Card className="border-slate-200/80 shadow-xs rounded-3xl overflow-hidden">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-5 flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-[#714B67]/10 text-[#714B67] flex items-center justify-center font-bold">
+                <Camera className="w-4 h-4" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-extrabold text-slate-900">Profile Photograph</CardTitle>
+                <p className="text-[11px] text-slate-500 font-medium">Upload employee profile image or specify a photo URL</p>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <AvatarUpload
+                currentAvatarUrl={avatarUrl}
+                initials={`${formData.firstName?.[0] || 'E'}${formData.lastName?.[0] || 'P'}`.toUpperCase()}
+                onAvatarChange={(newUrl) => setAvatarUrl(newUrl)}
+              />
+            </CardContent>
+          </Card>
+
           {/* Card 1: Personal Information */}
           <Card className="border-slate-200/80 shadow-xs rounded-3xl overflow-hidden">
             <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-5 flex items-center gap-2">

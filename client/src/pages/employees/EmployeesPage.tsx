@@ -10,6 +10,7 @@ import { Alert } from '../../components/ui/Alert';
 import { Spinner } from '../../components/ui/Spinner';
 import { employeeService } from '../../services/employeeService';
 import { DepartmentService } from '../../services/departmentService';
+import { getStoredAvatar } from '../../utils/avatarUtils';
 import type { Employee, Department, EmploymentStatus } from '../../types';
 import { 
   Users, 
@@ -117,15 +118,23 @@ export const EmployeesPage: React.FC = () => {
       accessor: 'firstName',
       render: (item) => {
         const initials = `${item.firstName[0] || ''}${item.lastName[0] || ''}`.toUpperCase();
+        const avatar = item.avatarUrl || getStoredAvatar(item.id) || getStoredAvatar(item.employeeCode);
+
         return (
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
-              {initials}
+            <div className="w-9 h-9 rounded-xl overflow-hidden border border-slate-200/80 bg-slate-100 shadow-xs flex items-center justify-center shrink-0">
+              {avatar ? (
+                <img src={avatar} alt={item.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#714B67] to-slate-800 text-white font-bold text-xs flex items-center justify-center">
+                  {initials}
+                </div>
+              )}
             </div>
             <div>
               <div className="font-bold text-slate-900 text-sm leading-tight flex items-center gap-1.5">
                 <span>{item.name}</span>
-                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded-md font-mono">
+                <span className="text-[10px] font-bold text-[#714B67] bg-[#714B67]/10 px-1.5 py-0.2 rounded-md font-mono">
                   {item.employeeCode}
                 </span>
               </div>
