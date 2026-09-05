@@ -808,7 +808,7 @@ export const SchedulesPage: React.FC = () => {
         isOpen={isAddModalOpen}
         onClose={() => !formSubmitting && setIsAddModalOpen(false)}
         title="Create Working Schedule"
-        maxWidth="lg"
+        maxWidth="2xl"
       >
         <form onSubmit={handleCreateSubmit} className="space-y-5">
           {formErrors.api && (
@@ -1036,7 +1036,7 @@ export const SchedulesPage: React.FC = () => {
         isOpen={isEditModalOpen}
         onClose={() => !formSubmitting && setIsEditModalOpen(false)}
         title={`Edit Schedule: ${selectedSchedule?.name || ''}`}
-        maxWidth="lg"
+        maxWidth="2xl"
       >
         <form onSubmit={handleEditSubmit} className="space-y-5">
           {formErrors.api && (
@@ -1227,7 +1227,7 @@ export const SchedulesPage: React.FC = () => {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         title="Schedule Overview & Timetable"
-        maxWidth="lg"
+        maxWidth="2xl"
       >
         {selectedSchedule && (
           <div className="space-y-5">

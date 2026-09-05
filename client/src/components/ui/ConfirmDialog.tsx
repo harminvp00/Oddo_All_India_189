@@ -13,6 +13,7 @@ export interface ConfirmDialogProps {
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'primary';
   isLoading?: boolean;
+  maxWidth?: 'sm' | 'md' | 'lg';
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -25,6 +26,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   cancelText = 'Cancel',
   variant = 'danger',
   isLoading = false,
+  maxWidth = 'md',
 }) => {
   const iconMap = {
     danger: <AlertTriangle className="w-5 h-5 text-rose-600" />,
@@ -42,7 +44,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      maxWidth="sm"
+      maxWidth={maxWidth}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
