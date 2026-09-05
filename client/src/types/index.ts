@@ -6,15 +6,19 @@ export interface NavItem {
   path: string;
   icon?: ReactNode;
   badge?: string | number;
+  roles?: UserRole[];
 }
 
 // User & Auth Types
+export type UserRole = 'ADMIN' | 'HR_MANAGER' | 'HR_PAYROLL_USER' | 'HR_PAYROLL_MANAGER' | 'EMPLOYEE';
+
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'user' | 'manager';
+  role: UserRole;
   avatar?: string;
+  employeeId?: string | null;
 }
 
 export interface AuthState {
@@ -32,7 +36,8 @@ export type AlertVariant = 'success' | 'warning' | 'danger' | 'info';
 
 // Table Component Types
 export interface TableColumn<T> {
-  key: string;
+  key?: string;
+  accessor?: string;
   header: string;
   render?: (item: T) => ReactNode;
   className?: string;
@@ -46,7 +51,83 @@ export interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
-// Demonstration Generic CRUD Types
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  meta?: PaginationMeta;
+  error?: {
+    code: string;
+    message: string;
+    details?: any;
+  };
+}
+
+// Department Types (matches Backend Schema)
+export interface Department {
+  id: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+  employeeCount?: number;
+  contractCount?: number;
+}
+
+export interface CreateDepartmentDTO {
+  name: string;
+  code: string;
+  isActive?: boolean;
+}
+
+export interface UpdateDepartmentDTO {
+  name?: string;
+  code?: string;
+  isActive?: boolean;
+}
+
+export interface DepartmentFilterParams {
+  search?: string;
+  isActive?: 'true' | 'false' | 'all';
+  page?: number;
+  limit?: number;
+}
+
+// Job Position Types (matches Backend Schema)
+export interface JobPosition {
+  id: string;
+  title: string;
+  description?: string | null;
+  isActive: boolean;
+  employeeCount?: number;
+  contractCount?: number;
+}
+
+export interface CreateJobPositionDTO {
+  title: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateJobPositionDTO {
+  title?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface JobPositionFilterParams {
+  search?: string;
+  isActive?: 'true' | 'false' | 'all';
+  page?: number;
+  limit?: number;
+}
+
+// Generic CRUD Types
 export interface ExampleItem {
   id: string;
   name: string;

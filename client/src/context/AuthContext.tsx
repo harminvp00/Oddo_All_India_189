@@ -8,16 +8,16 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   initializing: boolean;
-  login: (email: string) => Promise<void>;
+  login: (email: string, role?: string) => Promise<void>;
   logout: () => void;
   register: (name: string, email: string) => Promise<void>;
 }
 
 const DEFAULT_USER: User = {
   id: 'usr_1',
-  name: 'Alex Johnson',
-  email: 'alex.johnson@example.com',
-  role: 'admin',
+  name: 'Rahul Sharma',
+  email: 'admin@peoplepay360.com',
+  role: 'ADMIN',
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +31,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const timer = setTimeout(() => {
       const saved = localStorage.getItem('hackathon_user');
+      if (!localStorage.getItem('token')) {
+        localStorage.setItem('token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEiLCJlbWFpbCI6ImFkbWluQHBlb3BsZXBheTM2MC5jb20iLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3ODg1OTkwMjAsImV4cCI6MTc5MTE5MTAyMH0.k9jTZyarOa-it_B_JaoKTNudW617EpqYrXqj_rUrh7g');
+      }
       setUser(saved ? JSON.parse(saved) : DEFAULT_USER);
       setInitializing(false);
     }, 300); // Fast 300ms splash screen initialization
@@ -48,14 +51,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, initializing]);
 
-  const login = async (email: string) => {
+  const login = async (email: string, role?: string) => {
     setLoading(true);
     await new Promise((res) => setTimeout(res, 500));
     setUser({
       id: `usr_${Math.random().toString(36).substr(2, 6)}`,
       name: email.split('@')[0].replace('.', ' ').toUpperCase(),
       email,
-      role: 'admin',
+      role: (role as any) || 'ADMIN',
     });
     setLoading(false);
   };
@@ -67,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: `usr_${Math.random().toString(36).substr(2, 6)}`,
       name,
       email,
-      role: 'user',
+      role: 'EMPLOYEE',
     });
     setLoading(false);
   };

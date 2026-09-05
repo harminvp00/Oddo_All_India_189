@@ -1,10 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  ListFilter,
-  FilePlus2,
-  FileText,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -22,14 +18,6 @@ export interface SidebarProps {
   onCloseMobile?: () => void;
 }
 
-const getIcon = (path: string) => {
-  if (path.includes('dashboard')) return <LayoutDashboard className="w-4 h-4" />;
-  if (path.includes('list')) return <ListFilter className="w-4 h-4" />;
-  if (path.includes('form')) return <FilePlus2 className="w-4 h-4" />;
-  if (path.includes('details')) return <FileText className="w-4 h-4" />;
-  return <LayoutDashboard className="w-4 h-4" />;
-};
-
 export const Sidebar: React.FC<SidebarProps> = ({
   collapsed = false,
   onToggleCollapse,
@@ -40,7 +28,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user, logout } = useAuth();
 
   const renderNavGroup = (items: NavItem[], groupTitle?: string) => {
-    if (!items || items.length === 0) return null;
+    // Filter items based on user role
+    const filteredItems = items.filter(
+      (item) => !item.roles || (user && item.roles.includes(user.role))
+    );
+
+    if (filteredItems.length === 0) return null;
+
     return (
       <div className="space-y-1">
         {groupTitle && (!collapsed || isMobile) && (
@@ -48,8 +42,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {groupTitle}
           </div>
         )}
-        {items.map((item) => {
-          const isActive = location.pathname === item.path;
+        {filteredItems.map((item) => {
+          const isActive = location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/');
           return (
             <NavLink
               key={item.path}
@@ -63,7 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               title={collapsed && !isMobile ? item.label : undefined}
             >
               <span className={`shrink-0 ${isActive ? 'text-[var(--brand)]' : 'text-slate-400'}`}>
-                {item.icon || getIcon(item.path)}
+                {item.icon}
               </span>
 
               {(!collapsed || isMobile) && (
@@ -101,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex flex-col">
               <span className="font-extrabold text-slate-900 text-sm tracking-tight leading-none">{brand.shortName}</span>
               <span className="text-[10px] text-blue-600 uppercase tracking-widest font-mono mt-1 font-bold">
-                UI Shell
+                Workspace
               </span>
             </div>
           )}
@@ -130,7 +124,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Nav List */}
       <div className="flex-1 py-4 px-3 overflow-y-auto space-y-4">
         {renderNavGroup(mainNavItems, 'Main Menu')}
-        {renderNavGroup(sampleNavItems, 'Sample Gallery')}
       </div>
 
       {/* User Footer Profile */}
@@ -142,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-bold text-slate-900 truncate leading-tight">{user?.name || 'User'}</span>
-              <span className="text-[10px] text-slate-500 truncate capitalize font-medium">{user?.role || 'Admin'}</span>
+              <span className="text-[10px] text-slate-500 truncate capitalize font-medium">{user?.role || 'Member'}</span>
             </div>
           </div>
           <button
