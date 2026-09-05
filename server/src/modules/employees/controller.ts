@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { EmployeeService } from './service';
+import { EmployeeSummaryService } from './summary.service';
 import {
   createEmployeeSchema,
   updateEmployeeSchema,
@@ -47,6 +48,32 @@ export class EmployeeController {
         return;
       }
       errorResponse(res, 'INTERNAL_SERVER_ERROR', error.message || 'Failed to get employee', 500);
+    }
+  }
+
+  static async getSummary(req: Request, res: Response): Promise<void> {
+    try {
+      const idParam = req.params.id as string;
+      let empId: bigint;
+      try {
+        empId = BigInt(idParam);
+      } catch {
+        errorResponse(res, 'INVALID_ID', 'Invalid employee ID format', 400);
+        return;
+      }
+
+      const summary = await EmployeeSummaryService.getEmployeeSummary(empId, req.user);
+      successResponse(res, summary);
+    } catch (error: any) {
+      if (error.code === 'NOT_FOUND') {
+        errorResponse(res, 'NOT_FOUND', error.message, 404);
+        return;
+      }
+      if (error.code === 'FORBIDDEN') {
+        errorResponse(res, 'FORBIDDEN', error.message, 403);
+        return;
+      }
+      errorResponse(res, 'INTERNAL_SERVER_ERROR', error.message || 'Failed to get employee summary', 500);
     }
   }
 
