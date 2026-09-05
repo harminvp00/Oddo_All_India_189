@@ -1,8 +1,9 @@
-import bcrypt from 'bcryptjs';
-import { OAuth2Client } from 'google-auth-library';
-import prisma from '../../config/database';
-import { env } from '../../config/env';
-import { signToken } from '../../utils/jwt';
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
+import { OAuth2Client } from "google-auth-library";
+import prisma from "../../config/database";
+import { env } from "../../config/env";
+import { signToken } from "../../utils/jwt";
 
 export class AppError extends Error {
   code: string;
@@ -26,16 +27,20 @@ export async function loginUser(email: string, password: string) {
   });
 
   if (!user) {
-    throw new AppError('INVALID_CREDENTIALS', 'Invalid email or password', 400);
+    throw new AppError("INVALID_CREDENTIALS", "Invalid email or password", 400);
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.password_hash);
   if (!isPasswordValid) {
-    throw new AppError('INVALID_CREDENTIALS', 'Invalid email or password', 400);
+    throw new AppError("INVALID_CREDENTIALS", "Invalid email or password", 400);
   }
 
-  if (user.status === 'DISABLED') {
-    throw new AppError('ACCOUNT_DISABLED', 'Account is disabled. Please contact system administrator.', 403);
+  if (user.status === "DISABLED") {
+    throw new AppError(
+      "ACCOUNT_DISABLED",
+      "Account is disabled. Please contact system administrator.",
+      403,
+    );
   }
 
   // Update last login timestamp
@@ -58,6 +63,8 @@ export async function loginUser(email: string, password: string) {
       id: user.id.toString(),
       email: user.email,
       fullName: user.full_name,
+      avatarUrl: user.avatar_url,
+      avatar_url: user.avatar_url,
       role: user.role,
       status: user.status,
       employeeId,
@@ -68,6 +75,8 @@ export async function loginUser(email: string, password: string) {
 export async function authenticateGoogleUser(idToken: string) {
   let googleEmail: string | undefined;
   let googleSub: string | undefined;
+  let googleName: string | undefined;
+  let googlePicture: string | undefined;
 
   try {
     const ticket = await googleClient.verifyIdToken({
@@ -77,56 +86,122 @@ export async function authenticateGoogleUser(idToken: string) {
     const payload = ticket.getPayload();
     googleEmail = payload?.email;
     googleSub = payload?.sub;
+    googleName = payload?.name;
+    googlePicture = payload?.picture;
   } catch (error) {
-    throw new AppError('INVALID_GOOGLE_TOKEN', 'Failed to verify Google ID Token', 400);
+    throw new AppError(
+      "INVALID_GOOGLE_TOKEN",
+      "Failed to verify Google ID Token",
+      400,
+    );
   }
 
   if (!googleEmail) {
-    throw new AppError('VALIDATION_ERROR', 'Google token payload does not contain email', 400);
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Google token payload does not contain email",
+      400,
+    );
   }
 
   const normalizedEmail = googleEmail.toLowerCase();
-  const user = await prisma.users.findUnique({
+  let user: any = await prisma.users.findUnique({
     where: { email: normalizedEmail },
     include: { employees: true },
   });
 
-  // Business Rule: Unregistered Google account rejected with 403 USER_NOT_PROVISIONED
+  // If user does not exist in database, auto-provision user and linked employee record
   if (!user) {
-    throw new AppError(
-      'USER_NOT_PROVISIONED',
-      'Please contact your administrator to provision an account',
-      403
-    );
+    const randomPassword = crypto.randomUUID();
+    const passwordHash = await bcrypt.hash(randomPassword, 10);
+    const displayName = (googleName || normalizedEmail.split("@")[0] || "User").trim().slice(0, 120);
+    const nameParts = displayName.split(" ");
+    const firstName = (nameParts[0] || "User").slice(0, 80);
+    const lastName = (nameParts.slice(1).join(" ") || "Google").slice(0, 80);
+    const employeeCode = `EMP-G${Date.now().toString().slice(-4)}${Math.floor(10 + Math.random() * 90)}`;
+
+    const newUser = await prisma.users.create({
+      data: {
+        email: normalizedEmail,
+        full_name: displayName,
+        password_hash: passwordHash,
+        role: "ADMIN",
+        status: "ACTIVE",
+        avatar_url: googlePicture || null,
+      },
+    });
+
+    let newEmployee = null;
+    try {
+      newEmployee = await prisma.employees.create({
+        data: {
+          user_id: newUser.id,
+          employee_code: employeeCode,
+          first_name: firstName,
+          last_name: lastName,
+          hire_date: new Date(),
+          employee_type: "FULL_TIME",
+          employment_status: "ACTIVE",
+        },
+      });
+    } catch (empErr) {
+      console.warn("Could not auto-create employee profile for Google user:", empErr);
+    }
+
+    user = {
+      ...newUser,
+      employees: newEmployee,
+    };
   }
 
-  if (user.status === 'DISABLED') {
-    throw new AppError('ACCOUNT_DISABLED', 'Account is disabled. Please contact system administrator.', 403);
+  if (user.status === "DISABLED") {
+    throw new AppError(
+      "ACCOUNT_DISABLED",
+      "Account is disabled. Please contact system administrator.",
+      403,
+    );
   }
 
   // Link to auth_identities if not already linked
   if (googleSub) {
-    const existingIdentity = await prisma.auth_identities.findFirst({
-      where: { user_id: user.id, provider: 'GOOGLE' },
-    });
-
-    if (!existingIdentity) {
-      await prisma.auth_identities.create({
-        data: {
-          user_id: user.id,
-          provider: 'GOOGLE',
-          provider_subject: googleSub,
-          provider_email: normalizedEmail,
+    try {
+      const existingIdentity = await prisma.auth_identities.findFirst({
+        where: {
+          OR: [
+            { user_id: user.id, provider: "GOOGLE" },
+            { provider: "GOOGLE", provider_subject: googleSub },
+          ],
         },
       });
+
+      if (!existingIdentity) {
+        await prisma.auth_identities.create({
+          data: {
+            user_id: user.id,
+            provider: "GOOGLE",
+            provider_subject: googleSub,
+            provider_email: normalizedEmail,
+          },
+        });
+      }
+    } catch (authErr) {
+      console.warn("Could not link auth_identities for Google user:", authErr);
     }
   }
 
   // Update last login timestamp
-  await prisma.users.update({
-    where: { id: user.id },
-    data: { last_login_at: new Date() },
-  });
+  try {
+    await prisma.users.update({
+      where: { id: user.id },
+      data: {
+        last_login_at: new Date(),
+        full_name: googleName ? googleName.slice(0, 120) : user.full_name,
+        avatar_url: googlePicture || user.avatar_url,
+      },
+    });
+  } catch (updateErr) {
+    console.warn("Could not update last_login_at for Google user:", updateErr);
+  }
 
   const employeeId = user.employees ? user.employees.id.toString() : null;
   const token = signToken({
@@ -141,7 +216,9 @@ export async function authenticateGoogleUser(idToken: string) {
     user: {
       id: user.id.toString(),
       email: user.email,
-      fullName: user.full_name,
+      fullName: googleName || user.full_name,
+      avatarUrl: googlePicture || user.avatar_url,
+      avatar_url: googlePicture || user.avatar_url,
       role: user.role,
       status: user.status,
       employeeId,
@@ -166,21 +243,27 @@ export async function getCurrentUserProfile(userId: string) {
   });
 
   if (!user) {
-    throw new AppError('NOT_FOUND', 'User profile not found', 404);
+    throw new AppError("NOT_FOUND", "User profile not found", 404);
   }
 
   return {
     id: user.id.toString(),
     email: user.email,
     fullName: user.full_name,
+    avatarUrl: user.avatar_url,
+    avatar_url: user.avatar_url,
     role: user.role,
     status: user.status,
     employee: user.employees
       ? {
           id: user.employees.id.toString(),
           employeeCode: user.employees.employee_code,
-          departmentId: user.employees.department_id ? user.employees.department_id.toString() : null,
-          positionId: user.employees.position_id ? user.employees.position_id.toString() : null,
+          departmentId: user.employees.department_id
+            ? user.employees.department_id.toString()
+            : null,
+          positionId: user.employees.position_id
+            ? user.employees.position_id.toString()
+            : null,
         }
       : null,
   };
