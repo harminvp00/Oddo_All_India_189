@@ -1,303 +1,77 @@
 import { z } from "zod";
 
-export const ruleCategorySchema = z.enum([
-  "BASIC",
-  "ALLOWANCE",
-  "GROSS",
-  "DEDUCTION",
-  "CONTRIBUTION",
-  "NET",
-]);
+export const leaveUnitSchema = z.enum(["DAY", "HOUR"]);
 
-export const ruleMethodSchema = z.enum([
-  "FIXED",
-  "PERCENTAGE",
-  "FORMULA",
-]);
-
-export const payrunStatusSchema = z.enum([
+export const allocationStatusSchema = z.enum([
   "DRAFT",
-  "PROCESSING",
-  "COMPUTED",
-  "VALIDATED",
-  "PAID",
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+  "EXPIRED",
+]);
+
+export const leaveRequestStatusSchema = z.enum([
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
   "CANCELLED",
 ]);
-
-export const payslipStatusSchema = z.enum([
-  "DRAFT",
-  "COMPUTED",
-  "VALIDATED",
-  "PAID",
-  "SENT",
-  "CANCELLED",
-]);
-
-const idSchema = z.coerce.bigint().positive();
 
 const dateSchema = z
   .string()
-  .regex(
-    /^\d{4}-\d{2}-\d{2}$/,
-    "Date must be in YYYY-MM-DD format",
-  );
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format");
 
-const nullableNumber = z.number().finite().nullable().optional();
+const idSchema = z.coerce.bigint().positive();
 
-/*
-|--------------------------------------------------------------------------
-| Salary Rules
-|--------------------------------------------------------------------------
-*/
+const positiveUnitsSchema = z
+  .number()
+  .positive("Units must be greater than 0");
 
-export const salaryRuleCreateSchema = z
+const nonNegativeUnitsSchema = z
+  .number()
+  .min(0, "Units cannot be negative");
+
+export const leaveTypeCreateSchema = z
   .object({
     name: z.string().trim().min(1).max(100),
-
-    code: z
-      .string()
-      .trim()
-      .min(1)
-      .max(40),
-
-    category: ruleCategorySchema,
-
-    method: ruleMethodSchema,
-
-    fixedAmount: nullableNumber,
-
-    percentage: nullableNumber,
-
-    formula: z
-      .string()
-      .trim()
-      .min(1)
+    code: z.string().trim().min(1).max(30),
+    unit: leaveUnitSchema.default("DAY"),
+    requiresAllocation: z.boolean().default(true),
+    requiresApproval: z.boolean().default(true),
+    payrollDeductible: z.boolean().default(false),
+    maxConsecutiveUnits: z
+      .number()
+      .positive()
       .nullable()
       .optional(),
-
     isActive: z.boolean().default(true),
   })
-  .strict()
-  .superRefine((data, ctx) => {
-    if (data.method === "FIXED") {
-      if (
-        data.fixedAmount === undefined ||
-        data.fixedAmount === null ||
-        data.fixedAmount < 0
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["fixedAmount"],
-          message: "FIXED rules require fixedAmount >= 0",
-        });
-      }
+  .strict();
 
-      if (
-        data.percentage != null ||
-        data.formula != null
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["method"],
-          message:
-            "FIXED rules cannot define percentage or formula",
-        });
-      }
-    }
-
-    if (data.method === "PERCENTAGE") {
-      if (
-        data.percentage === undefined ||
-        data.percentage === null ||
-        data.percentage < 0 ||
-        data.percentage > 100
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["percentage"],
-          message:
-            "PERCENTAGE rules require percentage between 0 and 100",
-        });
-      }
-
-      if (
-        data.fixedAmount != null ||
-        data.formula != null
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["method"],
-          message:
-            "PERCENTAGE rules cannot define fixedAmount or formula",
-        });
-      }
-    }
-
-    if (data.method === "FORMULA") {
-      if (!data.formula?.trim()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["formula"],
-          message: "FORMULA rules require formula",
-        });
-      }
-
-      if (
-        data.fixedAmount != null ||
-        data.percentage != null
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["method"],
-          message:
-            "FORMULA rules cannot define fixedAmount or percentage",
-        });
-      }
-    }
-  });
-
-/*
- * IMPORTANT:
- * Do not use salaryRuleCreateSchema.partial().
- *
- * Zod v4 does not allow partial() on an object schema
- * containing refinements.
- *
- * PATCH validation is therefore defined separately.
- */
-export const salaryRuleUpdateSchema = z
+export const leaveTypeUpdateSchema = z
   .object({
     name: z.string().trim().min(1).max(100).optional(),
-
-    code: z
-      .string()
-      .trim()
-      .min(1)
-      .max(40)
-      .optional(),
-
-    category: ruleCategorySchema.optional(),
-
-    method: ruleMethodSchema.optional(),
-
-    fixedAmount: nullableNumber,
-
-    percentage: nullableNumber,
-
-    formula: z
-      .string()
-      .trim()
-      .min(1)
+    code: z.string().trim().min(1).max(30).optional(),
+    unit: leaveUnitSchema.optional(),
+    requiresAllocation: z.boolean().optional(),
+    requiresApproval: z.boolean().optional(),
+    payrollDeductible: z.boolean().optional(),
+    maxConsecutiveUnits: z
+      .number()
+      .positive()
       .nullable()
       .optional(),
-
     isActive: z.boolean().optional(),
   })
-  .strict()
-  .superRefine((data, ctx) => {
-    /*
-     * Validate values that are explicitly supplied.
-     */
+  .strict();
 
-    if (
-      data.fixedAmount !== undefined &&
-      data.fixedAmount !== null &&
-      data.fixedAmount < 0
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["fixedAmount"],
-        message: "fixedAmount must be >= 0",
-      });
-    }
-
-    if (
-      data.percentage !== undefined &&
-      data.percentage !== null &&
-      (data.percentage < 0 ||
-        data.percentage > 100)
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["percentage"],
-        message:
-          "percentage must be between 0 and 100",
-      });
-    }
-
-    if (
-      data.formula !== undefined &&
-      data.formula !== null &&
-      !data.formula.trim()
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["formula"],
-        message: "formula cannot be empty",
-      });
-    }
-
-    /*
-     * If method is explicitly changed, ensure
-     * incompatible fields are not supplied.
-     *
-     * The service performs the final merged
-     * invariant check using the existing DB row.
-     */
-
-    if (data.method === "FIXED") {
-      if (
-        data.percentage != null ||
-        data.formula != null
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["method"],
-          message:
-            "FIXED rules cannot define percentage or formula",
-        });
-      }
-    }
-
-    if (data.method === "PERCENTAGE") {
-      if (
-        data.fixedAmount != null ||
-        data.formula != null
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["method"],
-          message:
-            "PERCENTAGE rules cannot define fixedAmount or formula",
-        });
-      }
-    }
-
-    if (data.method === "FORMULA") {
-      if (
-        data.fixedAmount != null ||
-        data.percentage != null
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["method"],
-          message:
-            "FORMULA rules cannot define fixedAmount or percentage",
-        });
-      }
-    }
-  });
-
-export const salaryRuleIdSchema = z.object({
+export const leaveTypeIdSchema = z.object({
   id: idSchema,
 });
 
-export const salaryRuleListSchema = z
+export const leaveTypeListSchema = z
   .object({
     search: z.string().trim().optional(),
-
-    category: ruleCategorySchema.optional(),
-
     isActive: z
       .enum(["true", "false"])
       .transform((value) => value === "true")
@@ -305,291 +79,116 @@ export const salaryRuleListSchema = z
   })
   .strict();
 
-/*
-|--------------------------------------------------------------------------
-| Salary Structures
-|--------------------------------------------------------------------------
-*/
-
-const structureRuleSchema = z
+export const allocationCreateSchema = z
   .object({
-    ruleId: idSchema,
-
-    executionOrder: z
-      .number()
-      .int()
-      .positive(),
-  })
-  .strict();
-
-export const salaryStructureCreateSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(1)
-      .max(100),
-
-    description: z
-      .string()
-      .trim()
-      .max(1000)
-      .nullable()
-      .optional(),
-
-    isActive: z.boolean().default(true),
-
-    rules: z
-      .array(structureRuleSchema)
-      .min(1),
+    employeeId: idSchema,
+    leaveTypeId: idSchema,
+    validFrom: dateSchema,
+    validTo: dateSchema,
+    allocatedUnits: nonNegativeUnitsSchema,
+    status: allocationStatusSchema.default("DRAFT"),
   })
   .strict()
   .superRefine((data, ctx) => {
-    const ruleIds = new Set(
-      data.rules.map((rule) =>
-        rule.ruleId.toString(),
-      ),
-    );
-
-    if (ruleIds.size !== data.rules.length) {
+    if (data.validFrom > data.validTo) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["rules"],
-        message:
-          "A salary rule cannot be added twice",
+        path: ["validTo"],
+        message: "validTo must be greater than or equal to validFrom",
       });
     }
-
-    const orders = new Set(
-      data.rules.map(
-        (rule) => rule.executionOrder,
-      ),
-    );
-
-    if (orders.size !== data.rules.length) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["rules"],
-        message:
-          "executionOrder values must be unique",
-      });
-    }
-  });
-
-export const salaryStructureUpdateSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(1)
-      .max(100)
-      .optional(),
-
-    description: z
-      .string()
-      .trim()
-      .max(1000)
-      .nullable()
-      .optional(),
-
-    isActive: z.boolean().optional(),
-
-    rules: z
-      .array(structureRuleSchema)
-      .min(1)
-      .optional(),
-  })
-  .strict()
-  .superRefine((data, ctx) => {
-    if (!data.rules) {
-      return;
-    }
-
-    const ruleIds = new Set(
-      data.rules.map((rule) =>
-        rule.ruleId.toString(),
-      ),
-    );
-
-    const orders = new Set(
-      data.rules.map(
-        (rule) => rule.executionOrder,
-      ),
-    );
 
     if (
-      ruleIds.size !== data.rules.length ||
-      orders.size !== data.rules.length
+      data.status === "REJECTED" ||
+      data.status === "EXPIRED"
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["rules"],
-        message:
-          "Rule IDs and executionOrder values must be unique",
+        path: ["status"],
+        message: "New allocations cannot start as REJECTED or EXPIRED",
       });
     }
   });
 
-export const salaryStructureIdSchema = z.object({
-  id: idSchema,
-});
-
-export const salaryStructureListSchema = z
+export const allocationUpdateSchema = z
   .object({
-    search: z.string().trim().optional(),
-
-    isActive: z
-      .enum(["true", "false"])
-      .transform((value) => value === "true")
-      .optional(),
-  })
-  .strict();
-
-/*
-|--------------------------------------------------------------------------
-| Payrun / Payslip
-|--------------------------------------------------------------------------
-*/
- 
-export const payrunIdSchema = z.object({
-  id: idSchema,
-});
-
-export const payslipIdSchema = z.object({
-  id: idSchema,
-});
-
-export const eligibleEmployeesSchema = z
-  .object({
-    salaryStructureId: idSchema,
-
-    periodStart: dateSchema,
-
-    periodEnd: dateSchema,
+    validFrom: dateSchema.optional(),
+    validTo: dateSchema.optional(),
+    allocatedUnits: nonNegativeUnitsSchema.optional(),
+    status: allocationStatusSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
-    if (data.periodStart > data.periodEnd) {
+    if (data.validFrom && data.validTo && data.validFrom > data.validTo) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["periodEnd"],
-        message:
-          "periodEnd must be greater than or equal to periodStart",
+        path: ["validTo"],
+        message: "validTo must be greater than or equal to validFrom",
       });
     }
   });
 
-export const payrunCreateSchema = z
+export const allocationIdSchema = z.object({
+  id: idSchema,
+});
+
+export const allocationListSchema = z
   .object({
-    runName: z
-      .string()
-      .trim()
-      .min(1)
-      .max(120),
-
-    salaryStructureId: idSchema,
-
-    periodStart: dateSchema,
-
-    periodEnd: dateSchema,
-
-    employeeIds: z
-      .array(idSchema)
-      .min(1)
-      .max(1000),
-  })
-  .strict()
-  .superRefine((data, ctx) => {
-    if (data.periodStart > data.periodEnd) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["periodEnd"],
-        message:
-          "periodEnd must be greater than or equal to periodStart",
-      });
-    }
-
-    const employeeIds = new Set(
-      data.employeeIds.map((id) =>
-        id.toString(),
-      ),
-    );
-
-    if (
-      employeeIds.size !==
-      data.employeeIds.length
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["employeeIds"],
-        message:
-          "employeeIds must be unique",
-      });
-    }
-  });
-
-export const payrunListSchema = z
-  .object({
-    status: payrunStatusSchema.optional(),
-
-    salaryStructureId:
-      idSchema.optional(),
-
-    page: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .default(1),
-
-    limit: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(100)
-      .default(20),
-  })
-  .strict();
-
-export const payslipListSchema = z
-  .object({
-    payrunId: idSchema.optional(),
-
     employeeId: idSchema.optional(),
-
-    status: payslipStatusSchema.optional(),
-
-    page: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .default(1),
-
-    limit: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(100)
-      .default(20),
+    leaveTypeId: idSchema.optional(),
+    status: allocationStatusSchema.optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
   })
   .strict();
 
-/*
-|--------------------------------------------------------------------------
-| Types
-|--------------------------------------------------------------------------
-*/
+export const leaveRequestCreateSchema = z
+  .object({
+    leaveTypeId: idSchema,
+    startDate: dateSchema,
+    endDate: dateSchema,
+    requestedUnits: positiveUnitsSchema,
+    reason: z.string().trim().max(1000).optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.startDate > data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endDate"],
+        message: "endDate must be greater than or equal to startDate",
+      });
+    }
+  });
 
-export type SalaryRuleCreateInput =
-  z.infer<typeof salaryRuleCreateSchema>;
+export const leaveRequestListSchema = z
+  .object({
+    employeeId: idSchema.optional(),
+    status: leaveRequestStatusSchema.optional(),
+    startDate: dateSchema.optional(),
+    endDate: dateSchema.optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.startDate && data.endDate && data.startDate > data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endDate"],
+        message: "endDate must be greater than or equal to startDate",
+      });
+    }
+  });
 
-export type SalaryRuleUpdateInput =
-  z.infer<typeof salaryRuleUpdateSchema>;
+export const leaveRequestIdSchema = z.object({
+  id: idSchema,
+});
 
-export type SalaryStructureCreateInput =
-  z.infer<typeof salaryStructureCreateSchema>;
-
-export type SalaryStructureUpdateInput =
-  z.infer<typeof salaryStructureUpdateSchema>;
-
-export type PayrunCreateInput =
-  z.infer<typeof payrunCreateSchema>;
+export type LeaveTypeCreateInput = z.infer<typeof leaveTypeCreateSchema>;
+export type LeaveTypeUpdateInput = z.infer<typeof leaveTypeUpdateSchema>;
+export type AllocationCreateInput = z.infer<typeof allocationCreateSchema>;
+export type AllocationUpdateInput = z.infer<typeof allocationUpdateSchema>;
+export type LeaveRequestCreateInput = z.infer<typeof leaveRequestCreateSchema>;
+export type AllocationListInput = z.infer<typeof allocationListSchema>;
+export type LeaveRequestListInput = z.infer<typeof leaveRequestListSchema>;
