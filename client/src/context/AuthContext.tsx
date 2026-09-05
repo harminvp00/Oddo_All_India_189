@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { User, UserRole } from '../types';
 import { SplashScreen } from '../components/ui/SplashScreen';
 import { authService, type AuthUserResponse } from '../services/authService';
-import { mockDB } from '../services/mockDatabase';
 
 interface AuthContextType {
   user: User | null;
@@ -14,8 +13,6 @@ interface AuthContextType {
   logout: () => void;
   register: (name: string, email: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
-  switchPersona: (role: UserRole) => void;
-  resetDemoData: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,28 +33,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
 
-  // Initial application setup & session restoration
+  // Initial application setup & token / session restoration
   useEffect(() => {
     const restoreSession = async () => {
+      const token = localStorage.getItem('token');
       const savedUser = localStorage.getItem('peoplepay_user');
-      if (savedUser) {
+
+      if (token) {
+        try {
+          // Verify with live backend API
+          const profile = await authService.getCurrentUser();
+          const mapped = mapAuthUser(profile);
+          setUser(mapped);
+          localStorage.setItem('peoplepay_user', JSON.stringify(mapped));
+        } catch (error) {
+          // Token invalid or user disabled -> clear stale session
+          localStorage.removeItem('token');
+          localStorage.removeItem('peoplepay_user');
+          setUser(null);
+        }
+      } else if (savedUser) {
         try {
           setUser(JSON.parse(savedUser));
         } catch {
           setUser(null);
         }
-      } else {
-        // Default login as Admin for instantaneous seamless onboarding
-        const defaultAdmin: User = {
-          id: 'usr-1',
-          name: 'Krish Admin',
-          email: 'admin@peoplepay360.com',
-          role: 'ADMIN',
-          status: 'ACTIVE',
-        };
-        setUser(defaultAdmin);
-        localStorage.setItem('peoplepay_user', JSON.stringify(defaultAdmin));
       }
+
       setInitializing(false);
     };
 
@@ -90,26 +92,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const switchPersona = (role: UserRole) => {
-    const state = mockDB.getState();
-    const targetUser = state.users.find(u => u.role === role) || state.users[0];
-    const mapped: User = {
-      id: targetUser.id,
-      name: targetUser.name,
-      email: targetUser.email,
-      role: targetUser.role,
-      status: targetUser.status || 'ACTIVE',
-      employeeId: targetUser.employeeId,
-    };
-    setUser(mapped);
-    localStorage.setItem('peoplepay_user', JSON.stringify(mapped));
-  };
-
-  const resetDemoData = () => {
-    mockDB.resetToDefaults();
-    window.location.reload();
-  };
-
   const refreshProfile = async () => {
     try {
       const profile = await authService.getCurrentUser();
@@ -124,14 +106,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string) => {
     setLoading(true);
     try {
-      const newUser: User = {
+      // Placeholder or fallback registration hook
+      await new Promise((res) => setTimeout(res, 500));
+      setUser({
         id: `usr_${Date.now()}`,
         name,
         email,
         role: 'EMPLOYEE',
-      };
-      setUser(newUser);
-      localStorage.setItem('peoplepay_user', JSON.stringify(newUser));
+      });
     } finally {
       setLoading(false);
     }
@@ -155,8 +137,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         register,
         refreshProfile,
-        switchPersona,
-        resetDemoData,
       }}
     >
       {initializing ? <SplashScreen message="Preparing PeoplePay 360..." /> : children}

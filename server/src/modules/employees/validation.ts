@@ -42,6 +42,8 @@ export const createEmployeeSchema = z.object({
   bankAccountNumber: z.string().max(50).trim().nullable().optional(),
   bankName: z.string().max(120).trim().nullable().optional(),
   ifscCode: z.string().max(20).trim().toUpperCase().nullable().optional(),
+  wage: z.coerce.number().positive().optional(),
+  salaryStructureId: z.coerce.string().nullable().optional(),
 });
 
 export const updateEmployeeSchema = z.object({

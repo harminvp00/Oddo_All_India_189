@@ -273,6 +273,40 @@ export class EmployeeService {
       ifsc_code: input.ifscCode ?? null,
     } as any);
 
+    // If initial salary / wage is specified by admin, provision an active contract automatically
+    if (input.wage && Number(input.wage) > 0) {
+      try {
+        let structureId = input.salaryStructureId ? BigInt(input.salaryStructureId) : null;
+        if (!structureId) {
+          const defaultStruct = await prisma.salary_structures.findFirst({ where: { is_active: true } });
+          structureId = defaultStruct?.id ?? null;
+        }
+
+        if (structureId) {
+          const currentYear = new Date().getFullYear();
+          const cleanCode = (employeeCode || '').replace(/\D/g, '');
+          const contractNum = `CNT-${currentYear}-${cleanCode ? cleanCode.padStart(3, '0') : String(created.id).padStart(3, '0')}`;
+
+          await prisma.contracts.create({
+            data: {
+              employee_id: created.id,
+              contract_number: contractNum,
+              start_date: input.hireDate,
+              wage: input.wage,
+              status: 'ACTIVE',
+              salary_structure_id: structureId,
+              department_id: input.departmentId ? BigInt(input.departmentId) : null,
+              position_id: input.positionId ? BigInt(input.positionId) : null,
+              schedule_id: input.scheduleId ? BigInt(input.scheduleId) : null,
+              currency_code: 'INR',
+            },
+          });
+        }
+      } catch (cntErr) {
+        console.warn('Initial contract provisioning warning:', cntErr);
+      }
+    }
+
     return formatEmployee(created);
   }
 

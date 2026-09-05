@@ -404,11 +404,13 @@ export const AttendancePage: React.FC = () => {
       header: 'Employee',
       accessor: 'employeeId',
       render: (item) => {
-        const firstName = item.employee?.firstName || item.employee?.name?.split(' ')[0] || 'Employee';
-        const lastName = item.employee?.lastName || item.employee?.name?.split(' ')[1] || '';
-        const name = item.employee?.name || `${firstName} ${lastName}`.trim();
+        const name = item.employee
+          ? `${item.employee.firstName} ${item.employee.lastName}`
+          : `Employee #${item.employeeId}`;
         const code = item.employee?.employeeCode || '';
-        const initials = `${firstName[0] || 'E'}${lastName[0] || 'M'}`.toUpperCase();
+        const initials = item.employee
+          ? `${item.employee.firstName[0] || ''}${item.employee.lastName[0] || ''}`.toUpperCase()
+          : 'EM';
 
         return (
           <div className="flex items-center gap-3">
@@ -489,8 +491,6 @@ export const AttendancePage: React.FC = () => {
           HALF_DAY: 'primary',
           ABSENT: 'danger',
           CORRECTED: 'info',
-          OVERTIME: 'info',
-          ON_LEAVE: 'warning',
         };
         return (
           <div className="flex items-center gap-1.5">

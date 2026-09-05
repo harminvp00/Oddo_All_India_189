@@ -72,7 +72,7 @@ export interface AuthState {
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
-export type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'primary' | 'teal';
+export type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'primary';
 export type AlertVariant = 'success' | 'warning' | 'danger' | 'info';
 
 // Table Component Types
@@ -110,7 +110,7 @@ export interface ApiResponse<T> {
   };
 }
 
-// Department Types
+// Department Types (matches Backend Schema)
 export interface Department {
   id: string;
   name: string;
@@ -139,7 +139,7 @@ export interface DepartmentFilterParams {
   limit?: number;
 }
 
-// Job Position Types
+// Job Position Types (matches Backend Schema)
 export interface JobPosition {
   id: string;
   title: string;
@@ -168,18 +168,16 @@ export interface JobPositionFilterParams {
   limit?: number;
 }
 
-// Working Schedule Types
-export type ScheduleType = 'FIXED' | 'FLEXIBLE' | 'SHIFT';
+// Working Schedule Types (matches Backend Schema)
+export type ScheduleType = 'FIXED' | 'FLEXIBLE';
 
 export interface ScheduleDay {
   id?: string;
-  dayOfWeek: number | string;
-  startTime?: string | null;
-  endTime?: string | null;
-  breakMinutes?: number;
-  breakHours?: number;
+  dayOfWeek: number; // 1 (Mon) to 7 (Sun)
+  startTime?: string | null; // e.g. "09:00"
+  endTime?: string | null; // e.g. "18:00"
+  breakMinutes: number;
   dayHours?: number;
-  isWorking?: boolean;
 }
 
 export interface WorkingSchedule {
@@ -188,63 +186,52 @@ export interface WorkingSchedule {
   scheduleType: ScheduleType;
   weeklyHours: number;
   isActive: boolean;
-  description?: string;
   employeeCount?: number;
   contractCount?: number;
   dayCount?: number;
   scheduleDays?: ScheduleDay[];
-  days?: ScheduleDay[];
 }
 
 export interface CreateWorkingScheduleDTO {
   name: string;
   scheduleType?: ScheduleType;
   isActive?: boolean;
-  description?: string;
-  scheduleDays?: {
-    dayOfWeek: number | string;
+  scheduleDays: {
+    dayOfWeek: number;
     startTime?: string | null;
     endTime?: string | null;
-    breakMinutes?: number;
-    breakHours?: number;
-    isWorking?: boolean;
+    breakMinutes: number;
   }[];
-  days?: ScheduleDay[];
 }
 
 export interface UpdateWorkingScheduleDTO {
   name?: string;
   scheduleType?: ScheduleType;
   isActive?: boolean;
-  description?: string;
   scheduleDays?: {
-    dayOfWeek: number | string;
+    dayOfWeek: number;
     startTime?: string | null;
     endTime?: string | null;
-    breakMinutes?: number;
-    breakHours?: number;
-    isWorking?: boolean;
+    breakMinutes: number;
   }[];
-  days?: ScheduleDay[];
 }
 
 export interface WorkingScheduleFilterParams {
   search?: string;
-  scheduleType?: string;
   isActive?: 'true' | 'false' | 'all';
   page?: number;
   limit?: number;
 }
 
-// Attendance Types
-export type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'HALF_DAY' | 'CORRECTED' | 'OVERTIME' | 'ON_LEAVE';
+// Attendance Types (matches Backend Schema & API)
+export type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'HALF_DAY' | 'CORRECTED';
 
 export interface AttendanceRecord {
   id: string;
   employeeId: string;
-  attendanceDate: string;
-  checkIn?: string | null;
-  checkOut?: string | null;
+  attendanceDate: string; // YYYY-MM-DD
+  checkIn?: string | null; // ISO DateTime
+  checkOut?: string | null; // ISO DateTime
   workedHours: number;
   overtimeHours: number;
   status: AttendanceStatus;
@@ -255,20 +242,18 @@ export interface AttendanceRecord {
   employee?: {
     id: string;
     employeeCode: string;
-    firstName?: string;
-    lastName?: string;
+    firstName: string;
+    lastName: string;
     name?: string;
   };
 }
 
 export interface CheckInDTO {
-  employeeId?: string;
   attendanceDate?: string;
   checkIn?: string;
 }
 
 export interface CheckOutDTO {
-  employeeId?: string;
   attendanceDate?: string;
   checkOut?: string;
 }
@@ -282,7 +267,6 @@ export interface CorrectionDTO {
 }
 
 export interface AttendanceFilterParams {
-  search?: string;
   employeeId?: string;
   startDate?: string;
   endDate?: string;
@@ -291,7 +275,7 @@ export interface AttendanceFilterParams {
   limit?: number;
 }
 
-// Employee Types
+// Employee Types (matches PostgreSQL Schema & Backend API)
 export type EmployeeType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY';
 export type EmploymentStatus = 'ACTIVE' | 'ON_LEAVE' | 'SUSPENDED' | 'TERMINATED';
 
@@ -343,11 +327,6 @@ export interface Employee {
   bankAccountNumber?: string | null;
   bankName?: string | null;
   ifscCode?: string | null;
-  panNumber?: string | null;
-  uanNumber?: string | null;
-  emergencyContactName?: string | null;
-  emergencyContactPhone?: string | null;
-  emergencyContactRelation?: string | null;
   totalAttendance?: number;
   totalContracts?: number;
   avatarUrl?: string | null;
@@ -359,7 +338,7 @@ export interface CreateEmployeeDTO {
   employeeCode?: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email?: string;
   phone?: string;
   dateOfBirth?: string;
   hireDate: string;
@@ -373,9 +352,9 @@ export interface CreateEmployeeDTO {
   bankAccountNumber?: string;
   bankName?: string;
   ifscCode?: string;
-  panNumber?: string;
-  uanNumber?: string;
-  avatarUrl?: string | null;
+  avatarUrl?: string;
+  wage?: number;
+  salaryStructureId?: string;
 }
 
 export interface UpdateEmployeeDTO {
@@ -397,9 +376,7 @@ export interface UpdateEmployeeDTO {
   bankAccountNumber?: string;
   bankName?: string;
   ifscCode?: string;
-  panNumber?: string;
-  uanNumber?: string;
-  avatarUrl?: string | null;
+  avatarUrl?: string;
 }
 
 export interface EmployeeFilterParams {
@@ -411,17 +388,34 @@ export interface EmployeeFilterParams {
   limit?: number;
 }
 
-// Contract & Salary Structure Types
+// Generic CRUD Types
+export interface ExampleItem {
+  id: string;
+  name: string;
+  category: string;
+  status: 'Active' | 'Pending' | 'Approved' | 'Rejected' | 'Completed';
+  amount: number;
+  updatedAt: string;
+  description?: string;
+  owner: string;
+}
+
+export interface APIFilters {
+  search?: string;
+  status?: string;
+  category?: string;
+  page?: number;
+  limit?: number;
+}
+
+// Contract & Salary Structure Types (matches ashish-vekariya-contract-overlap-backend-module)
 export type ContractStatus = 'DRAFT' | 'ACTIVE' | 'EXPIRED' | 'TERMINATED';
 
 export interface SalaryStructure {
   id: string;
   name: string;
-  code?: string;
-  type?: string;
   description?: string | null;
   isActive?: boolean;
-  rules?: SalaryRule[];
 }
 
 export interface Contract {
@@ -430,15 +424,14 @@ export interface Contract {
   employee?: {
     id: string;
     employeeCode: string;
-    name?: string;
-    fullName?: string;
+    fullName: string;
   } | null;
   contractNumber: string;
   startDate: string;
   endDate?: string | null;
   status: ContractStatus;
   wage: number;
-  currencyCode?: string;
+  currencyCode: string;
   salaryStructureId: string;
   salaryStructure?: {
     id: string;
@@ -456,11 +449,6 @@ export interface Contract {
     title: string;
   } | null;
   scheduleId?: string | null;
-  schedule?: {
-    id: string;
-    name: string;
-    weeklyHours: number;
-  } | null;
   workingSchedule?: {
     id: string;
     name: string;
@@ -473,7 +461,7 @@ export interface Contract {
 
 export interface CreateContractDTO {
   employeeId: string;
-  contractNumber?: string;
+  contractNumber: string;
   startDate: string;
   endDate?: string | null;
   wage: number;
@@ -500,127 +488,31 @@ export interface UpdateContractDTO {
 
 export interface ContractFilterParams {
   employeeId?: string;
-  status?: ContractStatus | 'ALL' | string;
-  salaryStructureId?: string;
+  status?: ContractStatus | 'ALL';
   search?: string;
   page?: number;
   limit?: number;
 }
 
-// Salary Rules, Payruns, Payslips, and Payments Types
-export type SalaryRuleCategory = 'BASIC' | 'ALLOWANCE' | 'GROSS' | 'DEDUCTION' | 'NET';
-export type SalaryRuleType = 'FIXED' | 'PERCENTAGE' | 'FORMULA';
-
-export interface SalaryRule {
-  id: string;
-  structureId?: string;
-  name: string;
-  code: string;
-  category: SalaryRuleCategory;
-  sequence: number;
-  type: SalaryRuleType;
-  amount?: number;
-  rate?: number;
-  pythonCode?: string;
-  conditionType?: string;
-  isDeduction?: boolean;
-  isActive: boolean;
-}
-
-export type PayrunStatus = 'DRAFT' | 'COMPUTED' | 'VALIDATED' | 'PAID' | 'COMPLETED';
-
-export interface Payrun {
-  id: string;
-  name: string;
-  periodStartDate: string;
-  periodEndDate: string;
-  salaryStructureId: string;
-  status: PayrunStatus;
-  totalGross: number;
-  totalDeductions: number;
-  totalNet: number;
-  totalEmployerCost: number;
-  payslipCount: number;
-  createdAt?: string;
-  validatedAt?: string;
-  paidAt?: string;
-}
-
-export interface PayslipLine {
-  id: string;
-  payslipId: string;
-  ruleCode: string;
-  ruleName: string;
-  category: SalaryRuleCategory;
-  amount: number;
-  sequence: number;
-  isDeduction: boolean;
-}
-
-export interface Payslip {
-  id: string;
-  payrunId: string;
-  employeeId: string;
-  contractId: string;
-  salaryStructureId: string;
-  payslipNumber: string;
-  periodStartDate: string;
-  periodEndDate: string;
-  status: 'DRAFT' | 'VALIDATED' | 'PAID' | 'CANCELLED';
-  basicSalary: number;
-  grossSalary: number;
-  totalDeductions: number;
-  netSalary: number;
-  workingDays: number;
-  paidDays: number;
-  lopDays: number;
-  lines: PayslipLine[];
-  employee?: Employee;
-  contract?: Contract;
-}
-
-export interface Payment {
-  id: string;
-  payslipId: string;
-  employeeId: string;
-  amount: number;
-  paymentDate: string;
-  paymentMethod: string;
-  referenceNumber: string;
-  status: 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED';
-  employee?: Employee;
-}
-
-// Employee 360° Hub Summary Types
+// Employee 360° Hub Summary Types (matches ashish-vekariya-emp-hub-backend-module)
 export interface EmployeeSummary {
-  employee: {
-    id: string;
-    employeeCode: string;
-    name: string;
-    email?: string | null;
-    departmentName?: string;
-    positionTitle?: string;
-  };
-  counts: {
-    contracts: number;
-    attendanceDays: number;
-    timeOffRequests?: number;
-    approvedLeaves: number;
-    remainingLeaveDays: number;
-    payslips: number;
-    payments?: number;
-  };
+  employeeId: string;
   activeContract: {
     id: string;
     contractNumber: string;
     wage: number;
-    startDate?: string;
-    endDate?: string | null;
     salaryStructureName: string;
   } | null;
+  counts: {
+    contracts: number;
+    attendanceDays: number;
+    approvedLeaves: number;
+    remainingLeaveDays: number;
+    payslips: number;
+  };
 }
 
-// Time Off / Leave Management Types
+// Time Off / Leave Management Types (matches harmin/timeoff backend module)
 export type LeaveUnit = 'DAY' | 'HOUR';
 export type AllocationStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
 export type LeaveRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
@@ -667,7 +559,6 @@ export interface LeaveAllocation {
   validTo: string;
   allocatedUnits: number;
   usedUnits: number;
-  remainingUnits?: number;
   status: AllocationStatus;
   approvedBy?: string | null;
   approvedAt?: string | null;
@@ -709,10 +600,11 @@ export interface LeaveRequest {
 }
 
 export interface CreateLeaveRequestDTO {
-  employeeId?: string;
   leaveTypeId: string;
   startDate: string;
   endDate: string;
   requestedUnits: number;
   reason?: string;
 }
+
+

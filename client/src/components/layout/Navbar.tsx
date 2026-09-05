@@ -1,26 +1,17 @@
 import React, { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Menu, Bell, LogOut, ChevronDown, Search, ChevronRight, UserCheck, RotateCcw, Shield } from 'lucide-react';
+import { Menu, Bell, LogOut, ChevronDown, Search, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import type { UserRole } from '../../types';
+import { brand } from '../../config/brand';
 
 export interface NavbarProps {
   onToggleMobileMenu: () => void;
 }
 
-const PERSONAS: Array<{ role: UserRole; name: string; title: string; badgeColor: string }> = [
-  { role: 'ADMIN', name: 'Krish Admin', title: 'System Administrator (Full Access)', badgeColor: 'bg-purple-100 text-purple-800' },
-  { role: 'HR_MANAGER', name: 'Priya Sharma', title: 'HR Manager (Employees, Leaves, Contracts)', badgeColor: 'bg-indigo-100 text-indigo-800' },
-  { role: 'HR_PAYROLL_MANAGER', name: 'Vikram Malhotra', title: 'Payroll Manager (Full Payroll & Rules)', badgeColor: 'bg-teal-100 text-teal-800' },
-  { role: 'HR_PAYROLL_USER', name: 'Ananya Deshmukh', title: 'Payroll User (Payrun Execution)', badgeColor: 'bg-emerald-100 text-emerald-800' },
-  { role: 'EMPLOYEE', name: 'Rahul Sharma', title: 'Employee (Self-Service Portal)', badgeColor: 'bg-amber-100 text-amber-800' },
-];
-
 export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu }) => {
   const location = useLocation();
-  const { user, logout, switchPersona, resetDemoData } = useAuth();
+  const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showPersonaMenu, setShowPersonaMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
   // Generate dynamic breadcrumb items from URL path
@@ -32,8 +23,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu }) => {
       .replace(/\b\w/g, (c) => c.toUpperCase());
     return { title, url };
   });
-
-  const activePersona = PERSONAS.find(p => p.role === user?.role) || PERSONAS[0];
 
   return (
     <header className="sticky top-0 z-30 h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between">
@@ -49,7 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu }) => {
 
         {/* Dynamic Breadcrumbs */}
         <nav className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
-          <Link to="/dashboard" className="hover:text-slate-900 text-slate-600 font-bold">
+          <Link to="/dashboard" className="hover:text-slate-900 text-slate-600">
             PeoplePay360
           </Link>
           {formattedSegments.map((item, idx) => (
@@ -69,76 +58,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu }) => {
         </nav>
       </div>
 
-      {/* Right section: Persona Switcher, Search & Notifications & User Profile */}
+      {/* Right section: Search & Notifications & User Profile */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Persona Quick Switcher */}
-        <div className="relative">
-          <button
-            onClick={() => setShowPersonaMenu(!showPersonaMenu)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition-all cursor-pointer shadow-2xs"
-            title="Switch User Persona for testing"
-          >
-            <Shield className="w-3.5 h-3.5 text-[#714B67]" />
-            <span className="hidden sm:inline font-medium text-slate-500">Role:</span>
-            <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-bold ${activePersona.badgeColor}`}>
-              {user?.role?.replace(/_/g, ' ') || 'ADMIN'}
-            </span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-          </button>
-
-          {showPersonaMenu && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowPersonaMenu(false)} />
-              <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-20 animate-fadeIn text-xs">
-                <div className="px-3.5 py-2 border-b border-slate-100">
-                  <div className="font-extrabold text-slate-900">Switch Demo Persona</div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">Test role permissions instantly</div>
-                </div>
-                <div className="p-1 space-y-0.5">
-                  {PERSONAS.map(p => (
-                    <button
-                      key={p.role}
-                      onClick={() => {
-                        switchPersona(p.role);
-                        setShowPersonaMenu(false);
-                      }}
-                      className={`w-full text-left p-2.5 rounded-xl transition-all flex flex-col gap-0.5 ${
-                        user?.role === p.role ? 'bg-purple-50/80 border border-purple-200' : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">{p.name}</span>
-                        <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${p.badgeColor}`}>
-                          {p.role}
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-slate-500">{p.title}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="p-2 border-t border-slate-100">
-                  <button
-                    onClick={() => {
-                      setShowPersonaMenu(false);
-                      if (window.confirm('Reset all mock employee, attendance, contract, and payroll records to clean initial state?')) {
-                        resetDemoData();
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-xl text-rose-600 hover:bg-rose-50 font-bold flex items-center gap-2 transition-colors"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset Demo Data to Initial</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
         {/* Quick Search trigger */}
-        <div className="hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-400 w-44 cursor-pointer hover:border-slate-300 transition-colors">
+        <div className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-400 w-48 sm:w-64 cursor-pointer hover:border-slate-300 transition-colors">
           <Search className="w-3.5 h-3.5 text-slate-400" />
-          <span className="truncate">Search...</span>
+          <span className="truncate">Search employees, payroll...</span>
           <kbd className="ml-auto font-mono text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-400">
             ⌘K
           </kbd>
@@ -161,18 +86,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu }) => {
               <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-20 animate-fadeIn text-xs">
                 <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
                   <span className="font-bold text-slate-900">Notifications</span>
-                  <span className="text-[10px] text-[#714B67] font-semibold cursor-pointer">Mark all read</span>
+                  <span className="text-[10px] text-[#714B67] font-semibold cursor-pointer">Mark all as read</span>
                 </div>
                 <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
                   <div className="p-3 hover:bg-slate-50 transition-colors">
                     <p className="font-semibold text-slate-800">Pending Leave Approval</p>
-                    <p className="text-slate-500 text-[11px] mt-0.5">Amit Verma submitted casual leave for 2 days.</p>
-                    <span className="text-[10px] text-slate-400 mt-1 block font-mono">5m ago</span>
+                    <p className="text-slate-500 text-[11px] mt-0.5">Alex Morgan submitted a request for 3 days.</p>
+                    <span className="text-[10px] text-slate-400 mt-1 block font-mono">10m ago</span>
                   </div>
                   <div className="p-3 hover:bg-slate-50 transition-colors">
-                    <p className="font-semibold text-slate-800">Payrun Period Synchronized</p>
-                    <p className="text-slate-500 text-[11px] mt-0.5">September 2026 contract validation complete.</p>
-                    <span className="text-[10px] text-slate-400 mt-1 block font-mono">15m ago</span>
+                    <p className="font-semibold text-slate-800">Contract Overlap Protected</p>
+                    <p className="text-slate-500 text-[11px] mt-0.5">Active contract verified for next payrun.</p>
+                    <span className="text-[10px] text-slate-400 mt-1 block font-mono">1h ago</span>
                   </div>
                 </div>
               </div>
@@ -195,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu }) => {
               <span className="text-xs font-semibold text-slate-900 leading-tight">
                 {user?.name || 'User'}
               </span>
-              <span className="text-[10px] text-slate-500 font-medium capitalize">{user?.role?.replace(/_/g, ' ') || 'Admin'}</span>
+              <span className="text-[10px] text-slate-500 font-medium capitalize">{user?.role || 'Member'}</span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden md:block" />
           </button>

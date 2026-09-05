@@ -1,5 +1,4 @@
-import { mockDB } from './mockDatabase';
-import { businessLogic } from './businessLogicEngine';
+import { api } from './api';
 import type {
   AttendanceRecord,
   CheckInDTO,
@@ -7,130 +6,52 @@ import type {
   CorrectionDTO,
   AttendanceFilterParams,
   PaginationMeta,
+  ApiResponse,
 } from '../types';
 
 export const attendanceService = {
   checkIn: async (data: CheckInDTO = {}): Promise<AttendanceRecord> => {
-    const state = mockDB.getState();
-    const empId = data.employeeId || 'emp-1';
-    const today = data.attendanceDate || new Date().toISOString().split('T')[0];
-    const nowIso = data.checkIn || new Date().toISOString();
-
-    const existing = state.attendances.find(
-      a => a.employeeId === empId && a.attendanceDate === today
-    );
-
-    if (existing) {
-      throw new Error('Employee has already checked in today.');
-    }
-
-    const emp = state.employees.find(e => e.id === empId);
-    const newRecord: AttendanceRecord = {
-      id: `att-${Date.now()}`,
-      employeeId: empId,
-      attendanceDate: today,
-      checkIn: nowIso,
-      checkOut: null,
-      workedHours: 0,
-      overtimeHours: 0,
-      status: 'PRESENT',
-      employee: emp,
-    };
-
-    mockDB.updateState(draft => {
-      draft.attendances.unshift(newRecord);
-    });
-
-    return newRecord;
+    const res = await api.post<ApiResponse<AttendanceRecord>>('/attendance/check-in', data);
+    return res.data;
   },
 
   checkOut: async (data: CheckOutDTO = {}): Promise<AttendanceRecord> => {
-    const empId = data.employeeId || 'emp-1';
-    const today = data.attendanceDate || new Date().toISOString().split('T')[0];
-    const nowIso = data.checkOut || new Date().toISOString();
-    let updated: AttendanceRecord | null = null;
-
-    mockDB.updateState(draft => {
-      const record = draft.attendances.find(
-        a => a.employeeId === empId && a.attendanceDate === today
-      );
-      if (!record) throw new Error('No active check-in record found for today.');
-      if (record.checkOut) throw new Error('Employee has already checked out today.');
-
-      record.checkOut = nowIso;
-      const calc = businessLogic.calculateWorkedHours(record.checkIn, nowIso, 1.0);
-      record.workedHours = calc.workedHours;
-      record.status = calc.status;
-      record.overtimeHours = Math.max(0, Math.round((calc.workedHours - 8.0) * 100) / 100);
-      updated = record;
-    });
-
-    if (!updated) throw new Error('Failed to checkout.');
-    return updated;
-  },
-
-  correctAttendance: async (id: string, data: CorrectionDTO): Promise<AttendanceRecord> => {
-    let updated: AttendanceRecord | null = null;
-    mockDB.updateState(draft => {
-      const record = draft.attendances.find(a => a.id === id);
-      if (!record) throw new Error('Attendance record not found.');
-
-      if (data.checkIn) record.checkIn = data.checkIn;
-      if (data.checkOut) record.checkOut = data.checkOut;
-
-      const calc = businessLogic.calculateWorkedHours(record.checkIn, record.checkOut, 1.0);
-      record.workedHours = data.workedHours !== undefined ? Number(data.workedHours) : calc.workedHours;
-      record.status = data.status || 'CORRECTED';
-      record.overtimeHours = Math.max(0, Math.round((record.workedHours - 8.0) * 100) / 100);
-      updated = record;
-    });
-
-    if (!updated) throw new Error('Failed to correct attendance.');
-    return updated;
+    const res = await api.post<ApiResponse<AttendanceRecord>>('/attendance/check-out', data);
+    return res.data;
   },
 
   getAttendanceList: async (
     params: AttendanceFilterParams = {}
   ): Promise<{ items: AttendanceRecord[]; meta: PaginationMeta }> => {
-    const state = mockDB.getState();
-    let result = state.attendances.map(a => ({
-      ...a,
-      employee: state.employees.find(e => e.id === a.employeeId),
-    }));
+    const query = new URLSearchParams();
+    if (params.employeeId) query.append('employeeId', params.employeeId);
+    if (params.startDate) query.append('startDate', params.startDate);
+    if (params.endDate) query.append('endDate', params.endDate);
+    if (params.status && params.status !== 'all') query.append('status', params.status);
+    if (params.page) query.append('page', params.page.toString());
+    if (params.limit) query.append('limit', params.limit.toString());
 
-    if (params.search) {
-      const q = params.search.toLowerCase();
-      result = result.filter(
-        a => a.employee?.name?.toLowerCase().includes(q) || a.employee?.employeeCode?.toLowerCase().includes(q)
-      );
-    }
-    if (params.employeeId && params.employeeId !== 'all') {
-      result = result.filter(a => a.employeeId === params.employeeId);
-    }
-    if (params.status && params.status !== 'all') {
-      result = result.filter(a => a.status === params.status);
-    }
-    if (params.startDate) {
-      result = result.filter(a => a.attendanceDate >= params.startDate!);
-    }
-    if (params.endDate) {
-      result = result.filter(a => a.attendanceDate <= params.endDate!);
-    }
-
-    const page = params.page || 1;
-    const limit = params.limit || 50;
-    const total = result.length;
-    const totalPages = Math.ceil(total / limit) || 1;
-    const startIndex = (page - 1) * limit;
+    const endpoint = `/attendance${query.toString() ? `?${query.toString()}` : ''}`;
+    const res = await api.get<ApiResponse<AttendanceRecord[]>>(endpoint);
 
     return {
-      items: result.slice(startIndex, startIndex + limit),
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages,
+      items: res.data || [],
+      meta: res.meta || {
+        page: params.page || 1,
+        limit: params.limit || 20,
+        total: res.data?.length || 0,
+        totalPages: 1,
       },
     };
+  },
+
+  getAttendanceById: async (id: string): Promise<AttendanceRecord> => {
+    const res = await api.get<ApiResponse<AttendanceRecord>>(`/attendance/${id}`);
+    return res.data;
+  },
+
+  correctAttendance: async (id: string, data: CorrectionDTO): Promise<AttendanceRecord> => {
+    const res = await api.patch<ApiResponse<AttendanceRecord>>(`/attendance/${id}`, data);
+    return res.data;
   },
 };

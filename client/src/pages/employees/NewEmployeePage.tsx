@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
@@ -11,11 +11,13 @@ import { employeeService } from '../../services/employeeService';
 import { DepartmentService } from '../../services/departmentService';
 import { PositionService } from '../../services/positionService';
 import { ScheduleService } from '../../services/scheduleService';
+import { contractService } from '../../services/contractService';
 import type { 
   Department, 
   JobPosition, 
   WorkingSchedule, 
   Employee, 
+  SalaryStructure,
   CreateEmployeeDTO,
   EmployeeType,
   EmploymentStatus 
@@ -33,7 +35,10 @@ import {
   Calendar,
   Sparkles,
   ShieldCheck,
-  Camera
+  Camera,
+  IndianRupee,
+  Dice5,
+  BadgePercent
 } from 'lucide-react';
 
 export const NewEmployeePage: React.FC = () => {
@@ -44,8 +49,15 @@ export const NewEmployeePage: React.FC = () => {
   const [positions, setPositions] = useState<JobPosition[]>([]);
   const [schedules, setSchedules] = useState<WorkingSchedule[]>([]);
   const [managers, setManagers] = useState<Employee[]>([]);
+  const [salaryStructures, setSalaryStructures] = useState<SalaryStructure[]>([]);
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // Helper to generate unique random employee codes
+  const generateRandomCode = useCallback(() => {
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    return `EMP-${randomNum}`;
+  }, []);
 
   // Form State
   const todayStr = new Date().toISOString().split('T')[0];
@@ -56,7 +68,7 @@ export const NewEmployeePage: React.FC = () => {
     phone: '',
     dateOfBirth: '',
     hireDate: todayStr,
-    employeeCode: '',
+    employeeCode: generateRandomCode(),
     employeeType: 'FULL_TIME',
     employmentStatus: 'ACTIVE',
     departmentId: '',
@@ -68,48 +80,41 @@ export const NewEmployeePage: React.FC = () => {
     bankAccountNumber: '',
     ifscCode: '',
     avatarUrl: '',
+    wage: 85000,
+    salaryStructureId: '',
   });
 
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Load live departments, positions, schedules, and managers
+  // Load live departments, positions, schedules, managers, and salary structures
   useEffect(() => {
     async function loadOptions() {
       try {
         setInitialLoading(true);
-        const [deptRes, posRes, schedRes, empRes] = await Promise.all([
+        const [deptRes, posRes, schedRes, empRes, structRes] = await Promise.all([
           DepartmentService.listDepartments({ limit: 100, isActive: 'true' }),
           PositionService.listPositions({ limit: 100, isActive: 'true' }),
           ScheduleService.listSchedules({ limit: 100, isActive: 'true' }),
           employeeService.listEmployees({ limit: 100, status: 'ACTIVE' }),
+          contractService.listSalaryStructures(),
         ]);
 
         if (deptRes.success) setDepartments(deptRes.data);
         if (posRes.success) setPositions(posRes.data);
         if (schedRes.success) setSchedules(schedRes.data);
         setManagers(empRes.items || []);
+        setSalaryStructures(structRes || []);
 
         // Pre-select defaults if available
-        if (deptRes.data.length > 0) {
-          setFormData((prev) => ({
-            ...prev,
-            departmentId: prev.departmentId || deptRes.data[0].id,
-          }));
-        }
-        if (posRes.data.length > 0) {
-          setFormData((prev) => ({
-            ...prev,
-            positionId: prev.positionId || posRes.data[0].id,
-          }));
-        }
-        if (schedRes.data.length > 0) {
-          setFormData((prev) => ({
-            ...prev,
-            scheduleId: prev.scheduleId || schedRes.data[0].id,
-          }));
-        }
+        setFormData((prev) => ({
+          ...prev,
+          departmentId: prev.departmentId || (deptRes.data[0]?.id ?? ''),
+          positionId: prev.positionId || (posRes.data[0]?.id ?? ''),
+          scheduleId: prev.scheduleId || (schedRes.data[0]?.id ?? ''),
+          salaryStructureId: prev.salaryStructureId || (structRes[0]?.id ?? ''),
+        }));
       } catch (err: any) {
         console.error('Failed to load employee creation options:', err);
         setError('Failed to fetch organizational metadata from server.');
@@ -146,7 +151,7 @@ export const NewEmployeePage: React.FC = () => {
       const payload: CreateEmployeeDTO = {
         ...formData,
         employeeCode: formData.employeeCode?.trim() || undefined,
-        email: formData.email?.trim() || `${formData.firstName.toLowerCase()}.${formData.lastName.toLowerCase()}@peoplepay360.com`,
+        email: formData.email?.trim() || undefined,
         phone: formData.phone?.trim() || undefined,
         dateOfBirth: formData.dateOfBirth || undefined,
         departmentId: formData.departmentId || undefined,
@@ -301,13 +306,28 @@ export const NewEmployeePage: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <Input
-                label="EMPLOYEE CODE (OPTIONAL)"
-                placeholder="Leave blank for auto-generation (e.g. EMP0008)"
-                value={formData.employeeCode || ''}
-                onChange={(e) => handleChange('employeeCode', e.target.value)}
-                helperText="Auto-assigned sequentially if left empty"
-              />
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 tracking-wide uppercase">
+                    EMPLOYEE CODE (ID)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleChange('employeeCode', generateRandomCode())}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100/80 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                    title="Generate a new random unique Employee ID"
+                  >
+                    <Dice5 className="w-3.5 h-3.5" />
+                    <span>🎲 Generate Random ID</span>
+                  </button>
+                </div>
+                <Input
+                  placeholder="e.g. EMP-1092"
+                  value={formData.employeeCode || ''}
+                  onChange={(e) => handleChange('employeeCode', e.target.value)}
+                  helperText="Unique identifier for HR records, attendance kiosk, and payslips"
+                />
+              </div>
 
               <Input
                 label="JOINING / HIRE DATE"
@@ -400,10 +420,88 @@ export const NewEmployeePage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Card 3: Bank & Payroll Information */}
+          {/* Card 3: Salary Compensation & Contract Provisioning */}
+          <Card className="border-slate-200/80 shadow-xs rounded-3xl overflow-hidden border-l-4 border-l-emerald-500">
+            <CardHeader className="border-b border-slate-100 bg-emerald-50/40 p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <IndianRupee className="w-4 h-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-extrabold text-slate-900">Salary Compensation & Initial Contract</CardTitle>
+                  <p className="text-[11px] text-slate-500 font-medium">Define monthly gross compensation and statutory salary structure for instant payroll readiness</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100/80 border border-emerald-200 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                Automated Contract
+              </span>
+            </CardHeader>
+            <CardContent className="p-6 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Input
+                    label="MONTHLY GROSS WAGE / SALARY (₹ INR)*"
+                    type="number"
+                    min="0"
+                    step="500"
+                    placeholder="e.g. 85000"
+                    value={formData.wage ?? ''}
+                    onChange={(e) => handleChange('wage', Number(e.target.value))}
+                    helperText={formData.wage ? `₹${Number(formData.wage).toLocaleString('en-IN')} INR per month (Annual CTC: ₹${(Number(formData.wage) * 12).toLocaleString('en-IN')})` : 'Enter monthly gross CTC'}
+                  />
+
+                  {/* Quick Preset Salary Chips */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Presets:</span>
+                    {[35000, 50000, 85000, 110000, 125000, 150000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => handleChange('wage', amt)}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                          formData.wage === amt
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        ₹{(amt / 1000).toFixed(0)}k
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <Select
+                  label="STATUTORY SALARY STRUCTURE*"
+                  value={formData.salaryStructureId || ''}
+                  onChange={(e) => handleChange('salaryStructureId', e.target.value)}
+                  options={[
+                    { label: 'Select Salary Structure', value: '' },
+                    ...salaryStructures.map((s) => ({
+                      label: s.name,
+                      value: s.id,
+                    })),
+                  ]}
+                />
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-start gap-3">
+                <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-xs text-slate-600 space-y-0.5">
+                  <div className="font-bold text-slate-900">1-Click Automated Employment Contract Provisioning</div>
+                  <p className="text-slate-500 leading-relaxed">
+                    Upon onboarding, PeoplePay360 will automatically issue an active employment contract with the designated wage and rules, making {formData.firstName || 'the employee'} immediately ready for the next Payrun cycle.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 4: Bank & Payroll Information */}
           <Card className="border-slate-200/80 shadow-xs rounded-3xl overflow-hidden">
             <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-5 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
                 <CreditCard className="w-4 h-4" />
               </div>
               <div>
