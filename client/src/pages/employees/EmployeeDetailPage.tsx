@@ -59,9 +59,9 @@ export const EmployeeDetailPage: React.FC = () => {
         contractService.listContracts({ employeeId: id, limit: 20 }).catch(() => ({ items: [], meta: {} as any })),
       ]);
       setEmployee(empData);
-      setAvatarUrl(empData.avatarUrl || getStoredAvatar(id) || getStoredAvatar(empData.employeeCode) || null);
+      setAvatarUrl(empData?.avatarUrl || getStoredAvatar(id) || (empData?.employeeCode ? getStoredAvatar(empData.employeeCode) : null) || null);
       setSummary(summaryData);
-      setEmployeeContracts(contractsRes.items || []);
+      setEmployeeContracts(contractsRes?.items || []);
     } catch (err: any) {
       console.error('Failed to load employee details:', err);
       setError(err?.response?.data?.message || 'Employee profile not found or access denied.');
@@ -113,9 +113,9 @@ export const EmployeeDetailPage: React.FC = () => {
     );
   }
 
-  const initials = `${employee.firstName[0] || ''}${employee.lastName[0] || ''}`.toUpperCase();
+  const initials = `${employee.firstName?.[0] || employee.name?.[0] || ''}${employee.lastName?.[0] || ''}`.toUpperCase() || 'EM';
 
-  const statusVariantMap: Record<EmploymentStatus, 'success' | 'warning' | 'danger' | 'info' | 'primary' | 'neutral'> = {
+  const statusVariantMap: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'primary' | 'neutral'> = {
     ACTIVE: 'success',
     ON_LEAVE: 'warning',
     SUSPENDED: 'danger',
@@ -125,60 +125,47 @@ export const EmployeeDetailPage: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn pb-16 max-w-6xl mx-auto">
       {/* Header Profile Card */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/70 shadow-xs relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-r from-[#714B67] via-[#5b3c53] to-slate-900" />
+      <div className="bg-white rounded-3xl border border-slate-200/70 shadow-xs overflow-hidden">
+        {/* Cover Banner */}
+        <div className="h-32 sm:h-36 w-full bg-gradient-to-r from-[#714B67] via-[#5b3c53] to-slate-900 relative" />
         
-        <div className="relative mt-10 flex flex-col sm:flex-row gap-6 items-start sm:items-end justify-between">
-          <div className="flex flex-col sm:flex-row gap-5 items-center sm:items-end">
-            <div className="relative group w-24 h-24 rounded-2xl bg-white p-1.5 shadow-lg shrink-0">
-              <div className="w-full h-full rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={employee.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-[#714B67] to-slate-800 text-white font-extrabold text-2xl flex items-center justify-center">
-                    {initials}
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPhotoModalOpen(true)}
-                className="absolute inset-1.5 rounded-xl bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer"
-                title="Change profile picture"
-              >
-                <Camera className="w-5 h-5" />
-                <span className="text-[9px] font-bold">Edit</span>
-              </button>
-            </div>
-            <div className="pb-1 text-center sm:text-left">
-              <div className="flex items-center gap-2 justify-center sm:justify-start">
-                <h1 className="text-2xl font-extrabold text-slate-900">{employee.name}</h1>
-                <span className="text-xs font-bold text-[#714B67] bg-[#714B67]/10 px-2 py-0.5 rounded-full font-mono">
-                  {employee.employeeCode}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2.5 items-center mt-2 justify-center sm:justify-start text-xs font-medium text-slate-600">
-                <Badge variant={statusVariantMap[employee.employmentStatus] || 'neutral'}>
-                  {employee.employmentStatus.replace('_', ' ')}
-                </Badge>
-                {employee.position && (
-                  <span className="flex items-center gap-1 text-slate-700">
-                    <Briefcase className="w-3.5 h-3.5 text-violet-500" /> {employee.position.title}
-                  </span>
-                )}
+        {/* Profile Card Body */}
+        <div className="px-6 pb-6">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-5">
+              {/* Avatar floating over banner */}
+              <div className="relative -mt-14 sm:-mt-16 w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-1.5 shadow-xl shrink-0 ring-4 ring-white z-10 mx-auto sm:mx-0 group">
+                <div className="w-full h-full rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={employee.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-[#714B67] to-slate-800 text-white font-extrabold text-2xl flex items-center justify-center">
+                      {initials}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPhotoModalOpen(true)}
+                  className="absolute inset-1.5 rounded-xl bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer"
+                  title="Change profile picture"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span className="text-[9px] font-bold">Edit</span>
+                </button>
               </div>
 
               {/* Identity & Badges: completely on the white card background */}
-              <div className="pb-1 pt-1 text-center sm:text-left">
+              <div className="pt-2 pb-1 text-center sm:text-left">
                 <div className="flex flex-wrap items-center gap-2.5 justify-center sm:justify-start">
                   <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                     {employee.name}
                   </h1>
-                  <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100/90 px-2.5 py-0.5 rounded-lg font-mono shadow-2xs">
+                  <span className="text-xs font-bold text-[#714B67] bg-[#714B67]/10 border border-[#714B67]/20 px-2.5 py-0.5 rounded-lg font-mono shadow-2xs">
                     {employee.employeeCode}
                   </span>
                   <Badge variant={statusVariantMap[employee.employmentStatus] || 'neutral'}>
-                    {employee.employmentStatus.replace('_', ' ')}
+                    {employee.employmentStatus ? employee.employmentStatus.replace('_', ' ') : 'ACTIVE'}
                   </Badge>
                 </div>
 
@@ -211,25 +198,26 @@ export const EmployeeDetailPage: React.FC = () => {
               </div>
             </div>
 
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<Camera className="w-4 h-4 text-slate-500" />}
-              onClick={() => setIsPhotoModalOpen(true)}
-              className="bg-white font-bold text-xs"
-            >
-              Update Photo
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<ArrowLeft className="w-4 h-4 text-slate-500" />}
-              onClick={() => navigate('/employees')}
-              className="bg-white font-bold text-xs"
-            >
-              Back to List
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto mt-3 sm:mt-0 justify-center sm:justify-end pb-1">
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<Camera className="w-4 h-4 text-slate-500" />}
+                onClick={() => setIsPhotoModalOpen(true)}
+                className="bg-white font-bold text-xs"
+              >
+                Update Photo
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<ArrowLeft className="w-4 h-4 text-slate-500" />}
+                onClick={() => navigate('/employees')}
+                className="bg-white font-bold text-xs"
+              >
+                Back to List
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -247,7 +235,7 @@ export const EmployeeDetailPage: React.FC = () => {
             </div>
             <div className="mt-2">
               <div className="text-lg font-black text-slate-900">
-                {summary.activeContract ? `₹${summary.activeContract.wage.toLocaleString('en-IN')}` : 'No Active CTC'}
+                {summary.activeContract ? `₹${summary.activeContract.wage?.toLocaleString('en-IN')}` : 'No Active CTC'}
               </div>
               <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
                 {summary.activeContract ? summary.activeContract.salaryStructureName : 'Under Draft / Unassigned'}
@@ -264,7 +252,7 @@ export const EmployeeDetailPage: React.FC = () => {
               </div>
             </div>
             <div className="mt-2">
-              <div className="text-lg font-black text-slate-900">{summary.counts.attendanceDays} Days</div>
+              <div className="text-lg font-black text-slate-900">{summary.counts?.attendanceDays ?? 0} Days</div>
               <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">Verified Check-ins</div>
             </div>
           </div>
@@ -278,9 +266,9 @@ export const EmployeeDetailPage: React.FC = () => {
               </div>
             </div>
             <div className="mt-2">
-              <div className="text-lg font-black text-slate-900">{summary.counts.remainingLeaveDays} Days Left</div>
+              <div className="text-lg font-black text-slate-900">{summary.counts?.remainingLeaveDays ?? 0} Days Left</div>
               <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-                {summary.counts.approvedLeaves} leaves approved
+                {summary.counts?.approvedLeaves ?? 0} leaves approved
               </div>
             </div>
           </div>
@@ -294,9 +282,9 @@ export const EmployeeDetailPage: React.FC = () => {
               </div>
             </div>
             <div className="mt-2">
-              <div className="text-lg font-black text-slate-900">{summary.counts.payslips} Payslips</div>
+              <div className="text-lg font-black text-slate-900">{summary.counts?.payslips ?? 0} Payslips</div>
               <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-                {summary.counts.contracts} contracts issued
+                {summary.counts?.contracts ?? 0} contracts issued
               </div>
             </div>
           </div>
@@ -355,7 +343,7 @@ export const EmployeeDetailPage: React.FC = () => {
                   </div>
                   <div className="text-sm text-slate-700 font-medium">
                     <div className="text-xs text-slate-400">Employee Type</div>
-                    <div className="font-bold text-slate-900 mt-0.5">{employee.employeeType.replace('_', ' ')}</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{employee.employeeType ? employee.employeeType.replace('_', ' ') : '-'}</div>
                   </div>
                 </CardContent>
               </Card>
