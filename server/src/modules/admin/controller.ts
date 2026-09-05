@@ -11,6 +11,11 @@ import {
 } from './service';
 import { AppError } from '../auth/service';
 
+function formatZodErrors(error: any) {
+  const issues = error.issues || error.errors || [];
+  return issues.map((e: any) => ({ field: e.path.join('.'), issue: e.message }));
+}
+
 export async function handleListUsers(req: AuthenticatedRequest, res: Response) {
   try {
     const search = req.query.search as string | undefined;
@@ -21,7 +26,7 @@ export async function handleListUsers(req: AuthenticatedRequest, res: Response) 
 
     const result = await listUsers({ search, role, status, page, limit });
     return sendPaginated(res, result.users, result.meta, 200);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof AppError) {
       return sendError(res, error.code, error.message, error.status, error.details);
     }
@@ -31,10 +36,10 @@ export async function handleListUsers(req: AuthenticatedRequest, res: Response) 
 
 export async function handleGetUser(req: AuthenticatedRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const user = await getUserById(id);
     return sendSuccess(res, user, 200);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof AppError) {
       return sendError(res, error.code, error.message, error.status, error.details);
     }
@@ -51,7 +56,7 @@ export async function handleCreateUser(req: AuthenticatedRequest, res: Response)
         'VALIDATION_ERROR',
         'Validation failed',
         400,
-        parseResult.error.errors.map((e) => ({ field: e.path.join('.'), issue: e.message }))
+        formatZodErrors(parseResult.error)
       );
     }
 
@@ -60,7 +65,7 @@ export async function handleCreateUser(req: AuthenticatedRequest, res: Response)
       createdById: req.user?.userId,
     });
     return sendSuccess(res, createdUser, 201);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof AppError) {
       return sendError(res, error.code, error.message, error.status, error.details);
     }
@@ -70,7 +75,7 @@ export async function handleCreateUser(req: AuthenticatedRequest, res: Response)
 
 export async function handleUpdateUser(req: AuthenticatedRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const parseResult = updateUserSchema.safeParse(req.body);
     if (!parseResult.success) {
       return sendError(
@@ -78,13 +83,13 @@ export async function handleUpdateUser(req: AuthenticatedRequest, res: Response)
         'VALIDATION_ERROR',
         'Validation failed',
         400,
-        parseResult.error.errors.map((e) => ({ field: e.path.join('.'), issue: e.message }))
+        formatZodErrors(parseResult.error)
       );
     }
 
     const updated = await updateUser(id, parseResult.data);
     return sendSuccess(res, updated, 200);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof AppError) {
       return sendError(res, error.code, error.message, error.status, error.details);
     }
@@ -94,7 +99,7 @@ export async function handleUpdateUser(req: AuthenticatedRequest, res: Response)
 
 export async function handleToggleStatus(req: AuthenticatedRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const parseResult = toggleUserStatusSchema.safeParse(req.body);
     if (!parseResult.success) {
       return sendError(
@@ -102,13 +107,13 @@ export async function handleToggleStatus(req: AuthenticatedRequest, res: Respons
         'VALIDATION_ERROR',
         'Validation failed',
         400,
-        parseResult.error.errors.map((e) => ({ field: e.path.join('.'), issue: e.message }))
+        formatZodErrors(parseResult.error)
       );
     }
 
     const updated = await toggleUserStatus(id, parseResult.data.status);
     return sendSuccess(res, updated, 200);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof AppError) {
       return sendError(res, error.code, error.message, error.status, error.details);
     }

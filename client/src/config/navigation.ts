@@ -35,6 +35,12 @@ export const mainNavItems: NavItem[] = [
     icon: React.createElement(CalendarDays, { className: "w-4 h-4" }),
     roles: ['ADMIN', 'HR_MANAGER']
   },
+  {
+    label: 'User Management',
+    path: '/users',
+    icon: React.createElement(Building2, { className: "w-4 h-4" }),
+    roles: ['ADMIN']
+  },
   /* 
   // --- UNIMPLEMENTED BACKEND MODULES (UNCOMMENT AS BACKEND GETS BUILT) ---
   {

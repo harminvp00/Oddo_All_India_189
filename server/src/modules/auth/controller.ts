@@ -4,6 +4,11 @@ import { sendError, sendSuccess } from '../../utils/response';
 import { loginSchema, googleAuthSchema } from './validation';
 import { loginUser, authenticateGoogleUser, getCurrentUserProfile, AppError } from './service';
 
+function formatZodErrors(error: any) {
+  const issues = error.issues || error.errors || [];
+  return issues.map((e: any) => ({ field: e.path.join('.'), issue: e.message }));
+}
+
 export async function handleLogin(req: AuthenticatedRequest, res: Response) {
   try {
     const parseResult = loginSchema.safeParse(req.body);
@@ -13,14 +18,14 @@ export async function handleLogin(req: AuthenticatedRequest, res: Response) {
         'VALIDATION_ERROR',
         'Validation failed',
         400,
-        parseResult.error.errors.map((e) => ({ field: e.path.join('.'), issue: e.message }))
+        formatZodErrors(parseResult.error)
       );
     }
 
     const { email, password } = parseResult.data;
     const result = await loginUser(email, password);
     return sendSuccess(res, result, 200);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof AppError) {
       return sendError(res, error.code, error.message, error.status, error.details);
     }
@@ -37,14 +42,14 @@ export async function handleGoogleAuth(req: AuthenticatedRequest, res: Response)
         'VALIDATION_ERROR',
         'Validation failed',
         400,
-        parseResult.error.errors.map((e) => ({ field: e.path.join('.'), issue: e.message }))
+        formatZodErrors(parseResult.error)
       );
     }
 
     const { idToken } = parseResult.data;
     const result = await authenticateGoogleUser(idToken);
     return sendSuccess(res, result, 200);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof AppError) {
       return sendError(res, error.code, error.message, error.status, error.details);
     }
@@ -60,7 +65,7 @@ export async function handleMe(req: AuthenticatedRequest, res: Response) {
 
     const profile = await getCurrentUserProfile(req.user.userId);
     return sendSuccess(res, profile, 200);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof AppError) {
       return sendError(res, error.code, error.message, error.status, error.details);
     }

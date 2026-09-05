@@ -22,6 +22,7 @@ import { PayslipsPage } from "../pages/payroll/PayslipsPage";
 import { PaymentsPage } from "../pages/payments/PaymentsPage";
 import { ReportsPage } from "../pages/reports/ReportsPage";
 import { SettingsPage } from "../pages/settings/SettingsPage";
+import { UsersPage } from "../pages/users/UsersPage";
 
 // Route Guard Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
@@ -85,6 +86,7 @@ export const App: React.FC = () => {
             <Route path="payslips" element={<PayslipsPage />} />
 
             {/* Other */}
+            <Route path="users" element={<UsersPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />

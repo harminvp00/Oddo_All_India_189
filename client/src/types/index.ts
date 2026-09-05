@@ -11,14 +11,55 @@ export interface NavItem {
 
 // User & Auth Types
 export type UserRole = 'ADMIN' | 'HR_MANAGER' | 'HR_PAYROLL_USER' | 'HR_PAYROLL_MANAGER' | 'EMPLOYEE';
+export type UserStatus = 'ACTIVE' | 'DISABLED';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  status?: UserStatus;
   avatar?: string;
   employeeId?: string | null;
+}
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  status: UserStatus;
+  createdAt?: string;
+  lastLoginAt?: string | null;
+  employeeId?: string | null;
+  employeeCode?: string | null;
+  employee?: {
+    id: string;
+    employeeCode: string;
+    departmentId?: string | null;
+    positionId?: string | null;
+  } | null;
+}
+
+export interface CreateUserDTO {
+  email: string;
+  fullName: string;
+  role: UserRole;
+  password?: string;
+}
+
+export interface UpdateUserDTO {
+  email?: string;
+  fullName?: string;
+  role?: UserRole;
+}
+
+export interface UserFilterParams {
+  search?: string;
+  role?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface AuthState {
