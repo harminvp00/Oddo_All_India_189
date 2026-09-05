@@ -1,3 +1,4 @@
+
 import { Router } from "express";
 import { attendanceController } from "./controller";
 import { authenticate, requireRole } from "../../middleware/auth";
