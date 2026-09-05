@@ -97,6 +97,11 @@ export interface PaginationMeta {
   limit: number;
   total: number;
   totalPages: number;
+  stats?: {
+    total: number;
+    active: number;
+    admin: number;
+  };
 }
 
 export interface ApiResponse<T> {

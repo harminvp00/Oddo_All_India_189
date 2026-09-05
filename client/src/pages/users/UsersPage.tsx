@@ -26,6 +26,7 @@ import {
   Mail,
   Lock,
   User as UserIcon,
+  X,
 } from 'lucide-react';
 
 const ROLE_OPTIONS = [
@@ -55,6 +56,7 @@ export const UsersPage: React.FC = () => {
 
   // Filters & Pagination
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
@@ -64,6 +66,13 @@ export const UsersPage: React.FC = () => {
     limit: 10,
     total: 0,
     totalPages: 1,
+  });
+
+  // Global KPI Stats (persistent across search and filtering)
+  const [stats, setStats] = useState<{ total: number; active: number; admin: number }>({
+    total: 0,
+    active: 0,
+    admin: 0,
   });
 
   // Modals
@@ -107,6 +116,15 @@ export const UsersPage: React.FC = () => {
     }
   }, [toastMessage]);
 
+  // Debounce search term and reset page to 1
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   // Load Users
   const fetchUsers = useCallback(
     async (isSilent = false) => {
@@ -114,7 +132,7 @@ export const UsersPage: React.FC = () => {
       setError(null);
       try {
         const res = await userService.getUsers({
-          search: searchTerm.trim() || undefined,
+          search: debouncedSearchTerm.trim() || undefined,
           role: roleFilter !== 'all' ? roleFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
           page,
@@ -123,6 +141,17 @@ export const UsersPage: React.FC = () => {
 
         setUsers(res.users);
         setPaginationMeta(res.meta);
+
+        // Keep system stats persistent - never let table filtering fluctuate the global KPIs
+        if (res.meta.stats) {
+          setStats(res.meta.stats);
+        } else if (!debouncedSearchTerm.trim() && roleFilter === 'all' && statusFilter === 'all') {
+          setStats({
+            total: res.meta.total || res.users.length,
+            active: res.users.filter((u) => u.status === 'ACTIVE').length,
+            admin: res.users.filter((u) => u.role === 'ADMIN').length,
+          });
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to fetch users. Please check backend connection.');
       } finally {
@@ -130,7 +159,7 @@ export const UsersPage: React.FC = () => {
         setRefreshing(false);
       }
     },
-    [searchTerm, roleFilter, statusFilter, page, limit]
+    [debouncedSearchTerm, roleFilter, statusFilter, page, limit]
   );
 
   useEffect(() => {
@@ -282,10 +311,10 @@ export const UsersPage: React.FC = () => {
     }
   };
 
-  // Stats calculation
-  const totalCount = paginationMeta.total || users.length;
-  const activeCount = users.filter((u) => u.status === 'ACTIVE').length;
-  const adminCount = users.filter((u) => u.role === 'ADMIN').length;
+  // Stats calculation (persistent global metrics)
+  const totalCount = stats.total;
+  const activeCount = stats.active;
+  const adminCount = stats.admin;
 
   return (
     <div className="space-y-6">
@@ -322,7 +351,6 @@ export const UsersPage: React.FC = () => {
               size="sm"
               onClick={handleOpenAddModal}
               leftIcon={<UserPlus className="w-4 h-4" />}
-              className="bg-indigo-600 hover:bg-indigo-700 shadow-sm"
             >
               Add New User
             </Button>
@@ -367,10 +395,22 @@ export const UsersPage: React.FC = () => {
       <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
         <div className="w-full sm:w-80">
           <Input
-            placeholder="Search by name or email..."
+            placeholder="Search by name, email, or employee code..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             startIcon={<Search className="w-4 h-4 text-slate-400" />}
+            endIcon={
+              searchTerm ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="text-slate-400 hover:text-slate-600 focus:outline-hidden cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              ) : undefined
+            }
           />
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -615,7 +655,6 @@ export const UsersPage: React.FC = () => {
               type="submit"
               variant="primary"
               isLoading={formSubmitting}
-              className="bg-indigo-600 hover:bg-indigo-700"
             >
               Create Account
             </Button>
@@ -679,7 +718,6 @@ export const UsersPage: React.FC = () => {
               type="submit"
               variant="primary"
               isLoading={formSubmitting}
-              className="bg-indigo-600 hover:bg-indigo-700"
             >
               Save Changes
             </Button>
