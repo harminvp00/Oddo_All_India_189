@@ -33,13 +33,45 @@ import {
   Dice5,
 } from 'lucide-react';
 
+export const getTodayStr = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const getMaxDobStr = (): string => {
+  const now = new Date();
+  const year = now.getFullYear() - 18;
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const getMinDobStr = (): string => {
+  const now = new Date();
+  const year = now.getFullYear() - 60;
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export function calculateAge(dobString: string): number {
-  const dob = new Date(dobString);
+  if (!dobString) return 0;
+  const parts = dobString.split('-');
+  if (parts.length !== 3) return 0;
+  const birthYear = parseInt(parts[0], 10);
+  const birthMonth = parseInt(parts[1], 10) - 1;
+  const birthDay = parseInt(parts[2], 10);
+
   const today = new Date();
-  if (isNaN(dob.getTime())) return 0;
-  let age = today.getFullYear() - dob.getFullYear();
-  const monthDiff = today.getMonth() - dob.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+  const currentDay = today.getDate();
+
+  let age = currentYear - birthYear;
+  if (currentMonth < birthMonth || (currentMonth === birthMonth && currentDay < birthDay)) {
     age--;
   }
   return age;
@@ -63,7 +95,7 @@ export const NewEmployeePage: React.FC = () => {
   }, []);
 
   // Form State
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayStr();
   const [formData, setFormData] = useState<CreateEmployeeDTO>({
     firstName: '',
     lastName: '',
@@ -88,6 +120,7 @@ export const NewEmployeePage: React.FC = () => {
 
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Load live departments, positions, schedules, managers, and salary structures
@@ -130,80 +163,210 @@ export const NewEmployeePage: React.FC = () => {
 
   const handleChange = (field: keyof CreateEmployeeDTO, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
+  const validateSingleField = (field: keyof CreateEmployeeDTO): string | null => {
+    const today = getTodayStr();
+
+    switch (field) {
+      case 'firstName': {
+        const val = formData.firstName?.trim();
+        if (!val) return 'First name is required.';
+        if (val.length > 80) return 'First name cannot exceed 80 characters.';
+        if (!/^[a-zA-Z\s.'-]+$/.test(val)) return 'First name can only contain letters and spaces.';
+        return null;
+      }
+      case 'lastName': {
+        const val = formData.lastName?.trim();
+        if (!val) return 'Last name is required.';
+        if (val.length > 80) return 'Last name cannot exceed 80 characters.';
+        if (!/^[a-zA-Z\s.'-]+$/.test(val)) return 'Last name can only contain letters and spaces.';
+        return null;
+      }
+      case 'email': {
+        const val = formData.email?.trim();
+        if (val) {
+          if (val.length > 120) return 'Email address cannot exceed 120 characters.';
+          const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+          if (!emailRegex.test(val)) return 'Please enter a valid email address (e.g. name@domain.com).';
+        }
+        return null;
+      }
+      case 'phone': {
+        const val = formData.phone?.trim();
+        if (val) {
+          if (!/^\d{10}$/.test(val)) {
+            return 'Phone number must be exactly 10 digits.';
+          }
+        }
+        return null;
+      }
+      case 'dateOfBirth': {
+        const val = formData.dateOfBirth;
+        if (val) {
+          if (val > today) {
+            return 'Date of birth cannot be greater than current date.';
+          }
+          const age = calculateAge(val);
+          if (age < 18) {
+            return 'Employee must be at least 18 years old.';
+          }
+          if (age > 60) {
+            return 'Employee maximum age limit is 60 years.';
+          }
+        }
+        return null;
+      }
+      case 'hireDate': {
+        const val = formData.hireDate;
+        if (!val) return 'Joining / Hire date is required.';
+        if (val < today) {
+          return 'Joining / Hire date cannot be earlier than current date.';
+        }
+        return null;
+      }
+      case 'employeeCode': {
+        const val = formData.employeeCode?.trim();
+        if (val) {
+          if (val.length > 30) return 'Employee Code cannot exceed 30 characters.';
+          if (!/^[A-Za-z0-9_-]+$/.test(val)) {
+            return 'Employee Code can only contain letters, numbers, hyphens, and underscores.';
+          }
+        }
+        return null;
+      }
+      case 'departmentId': {
+        if (!formData.departmentId) return 'Please select a department.';
+        return null;
+      }
+      case 'positionId': {
+        if (!formData.positionId) return 'Please select a job position.';
+        return null;
+      }
+      case 'employeeType': {
+        if (!formData.employeeType) return 'Please select an employee type.';
+        return null;
+      }
+      case 'employmentStatus': {
+        if (!formData.employmentStatus) return 'Please select an employment status.';
+        return null;
+      }
+      case 'wage': {
+        const val = formData.wage;
+        if (val === undefined || val === null || String(val).trim() === '') {
+          return 'Monthly gross wage is required.';
+        }
+        const num = Number(val);
+        if (isNaN(num) || num <= 0) {
+          return 'Wage must be a valid positive number greater than 0.';
+        }
+        if (num > 10000000) {
+          return 'Wage exceeds maximum permitted limit (₹1,00,00,000).';
+        }
+        return null;
+      }
+      case 'salaryStructureId': {
+        if (!formData.salaryStructureId) return 'Please select a statutory salary structure.';
+        return null;
+      }
+      case 'bankName': {
+        const val = formData.bankName?.trim();
+        if (val && val.length > 120) return 'Bank name cannot exceed 120 characters.';
+        return null;
+      }
+      case 'bankAccountName': {
+        const val = formData.bankAccountName?.trim();
+        if (val && val.length > 120) return 'Account holder name cannot exceed 120 characters.';
+        return null;
+      }
+      case 'bankAccountNumber': {
+        const val = formData.bankAccountNumber?.trim();
+        if (val) {
+          if (val.length > 50) return 'Bank account number cannot exceed 50 characters.';
+          if (!/^\d{9,30}$/.test(val.replace(/\s+/g, ''))) {
+            return 'Bank account number should typically contain 9 to 30 digits.';
+          }
+        }
+        return null;
+      }
+      case 'ifscCode': {
+        const val = formData.ifscCode?.trim();
+        if (val) {
+          if (val.length > 20) return 'IFSC code cannot exceed 20 characters.';
+          if (!/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(val)) {
+            return 'Invalid IFSC format. Expected 4 letters, 0, then 6 alphanumeric characters (e.g. HDFC0001234).';
+          }
+        }
+        return null;
+      }
+      default:
+        return null;
+    }
+  };
+
+  const handleBlur = (field: keyof CreateEmployeeDTO) => {
+    const fieldError = validateSingleField(field);
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (fieldError) {
+        next[field] = fieldError;
+      } else {
+        delete next[field];
+      }
+      return next;
+    });
   };
 
   const validateForm = (): boolean => {
-    // 1. Mandatory Names & Length Limits
-    if (!formData.firstName.trim()) {
-      setError('First name is required.');
-      return false;
-    }
-    if (formData.firstName.trim().length > 80) {
-      setError('First name cannot exceed 80 characters.');
-      return false;
-    }
-    if (!formData.lastName.trim()) {
-      setError('Last name is required.');
-      return false;
-    }
-    if (formData.lastName.trim().length > 80) {
-      setError('Last name cannot exceed 80 characters.');
-      return false;
-    }
+    const fieldsToValidate: (keyof CreateEmployeeDTO)[] = [
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'dateOfBirth',
+      'hireDate',
+      'employeeCode',
+      'departmentId',
+      'positionId',
+      'employeeType',
+      'employmentStatus',
+      'wage',
+      'salaryStructureId',
+      'bankName',
+      'bankAccountName',
+      'bankAccountNumber',
+      'ifscCode',
+    ];
 
-    // 2. Email Validation
-    if (formData.email?.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email.trim())) {
-        setError('Please enter a valid email address.');
-        return false;
+    const newErrors: Record<string, string> = {};
+    for (const field of fieldsToValidate) {
+      const err = validateSingleField(field);
+      if (err) {
+        newErrors[field] = err;
       }
     }
 
-    // 3. Phone Validation
-    if (formData.phone?.trim()) {
-      const phoneRegex = /^[+0-9\s-]{7,30}$/;
-      if (!phoneRegex.test(formData.phone.trim())) {
-        setError('Please enter a valid phone number (7 to 30 digits).');
-        return false;
-      }
-    }
+    setErrors(newErrors);
 
-    // 4. Date of Birth Strict Validation (18 <= Age <= 60)
-    if (formData.dateOfBirth) {
-      const age = calculateAge(formData.dateOfBirth);
-      if (age < 18) {
-        setError('Employee must be at least 18 years old.');
-        return false;
-      }
-      if (age > 60) {
-        setError('Employee maximum age limit is 60 years.');
-        return false;
-      }
-    }
-
-    // 5. Hire Date
-    if (!formData.hireDate) {
-      setError('Joining / Hire date is required.');
+    const errorCount = Object.keys(newErrors).length;
+    if (errorCount > 0) {
+      const firstError = Object.values(newErrors)[0];
+      setError(
+        errorCount === 1
+          ? firstError
+          : `Please fix the ${errorCount} error${errorCount > 1 ? 's' : ''} highlighted in the form.`
+      );
       return false;
     }
 
-    // 6. Employee Code
-    if (formData.employeeCode && formData.employeeCode.trim().length > 30) {
-      setError('Employee Code cannot exceed 30 characters.');
-      return false;
-    }
-
-    // 7. Bank Details
-    if (formData.ifscCode?.trim() && formData.ifscCode.trim().length > 20) {
-      setError('IFSC code cannot exceed 20 characters.');
-      return false;
-    }
-    if (formData.bankAccountNumber?.trim() && formData.bankAccountNumber.trim().length > 50) {
-      setError('Bank account number cannot exceed 50 characters.');
-      return false;
-    }
-
+    setError(null);
     return true;
   };
 
@@ -316,42 +479,56 @@ export const NewEmployeePage: React.FC = () => {
             </CardHeader>
             <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
               <Input
-                label="FIRST NAME*"
+                label="FIRST NAME"
                 required
                 maxLength={80}
                 placeholder="e.g. Rahul"
                 value={formData.firstName}
                 onChange={(e) => handleChange('firstName', e.target.value)}
+                onBlur={() => handleBlur('firstName')}
+                error={errors.firstName}
               />
               <Input
-                label="LAST NAME*"
+                label="LAST NAME"
                 required
                 maxLength={80}
                 placeholder="e.g. Sharma"
                 value={formData.lastName}
                 onChange={(e) => handleChange('lastName', e.target.value)}
+                onBlur={() => handleBlur('lastName')}
+                error={errors.lastName}
               />
               <Input
                 label="WORK EMAIL ADDRESS"
                 type="email"
+                maxLength={120}
                 placeholder="rahul.sharma@peoplepay360.com"
                 value={formData.email || ''}
                 onChange={(e) => handleChange('email', e.target.value)}
+                onBlur={() => handleBlur('email')}
+                error={errors.email}
                 helperText="A system login user account will automatically be created/linked"
               />
               <Input
                 label="PHONE NUMBER"
-                placeholder="+91 98765 43210"
-                maxLength={30}
+                placeholder="9876543210"
+                maxLength={10}
                 value={formData.phone || ''}
                 onChange={(e) => handleChange('phone', e.target.value)}
+                onBlur={() => handleBlur('phone')}
+                error={errors.phone}
+                helperText="10-digit mobile number"
               />
               <Input
                 label="DATE OF BIRTH (AGE: 18 - 60 YEARS)"
                 type="date"
+                min={getMinDobStr()}
+                max={getMaxDobStr()}
                 value={formData.dateOfBirth || ''}
                 onChange={(e) => handleChange('dateOfBirth', e.target.value)}
-                helperText="Employee must be between 18 and 60 years of age"
+                onBlur={() => handleBlur('dateOfBirth')}
+                error={errors.dateOfBirth}
+                helperText="Employee must be at least 18 years old and not older than 60 years"
               />
             </CardContent>
           </Card>
@@ -390,23 +567,31 @@ export const NewEmployeePage: React.FC = () => {
                   maxLength={30}
                   value={formData.employeeCode || ''}
                   onChange={(e) => handleChange('employeeCode', e.target.value)}
+                  onBlur={() => handleBlur('employeeCode')}
+                  error={errors.employeeCode}
                   helperText="Unique identifier for HR records, attendance kiosk, and payslips"
                 />
               </div>
 
               <Input
-                label="JOINING / HIRE DATE*"
+                label="JOINING / HIRE DATE"
                 type="date"
                 required
+                min={todayStr}
                 value={formData.hireDate}
                 onChange={(e) => handleChange('hireDate', e.target.value)}
+                onBlur={() => handleBlur('hireDate')}
+                error={errors.hireDate}
+                helperText="Hire date cannot be earlier than today"
               />
 
               <Select
-                label="DEPARTMENT*"
+                label="DEPARTMENT"
                 required
                 value={formData.departmentId || ''}
                 onChange={(e) => handleChange('departmentId', e.target.value)}
+                onBlur={() => handleBlur('departmentId')}
+                error={errors.departmentId}
                 options={[
                   { label: 'Select Department', value: '' },
                   ...departments.map((d) => ({
@@ -417,10 +602,12 @@ export const NewEmployeePage: React.FC = () => {
               />
 
               <Select
-                label="JOB POSITION / DESIGNATION*"
+                label="JOB POSITION / DESIGNATION"
                 required
                 value={formData.positionId || ''}
                 onChange={(e) => handleChange('positionId', e.target.value)}
+                onBlur={() => handleBlur('positionId')}
+                error={errors.positionId}
                 options={[
                   { label: 'Select Job Position', value: '' },
                   ...positions.map((p) => ({
@@ -434,6 +621,8 @@ export const NewEmployeePage: React.FC = () => {
                 label="WORKING SCHEDULE / SHIFT"
                 value={formData.scheduleId || ''}
                 onChange={(e) => handleChange('scheduleId', e.target.value)}
+                onBlur={() => handleBlur('scheduleId')}
+                error={errors.scheduleId}
                 options={[
                   { label: 'Select Schedule', value: '' },
                   ...schedules.map((s) => ({
@@ -457,10 +646,12 @@ export const NewEmployeePage: React.FC = () => {
               />
 
               <Select
-                label="EMPLOYEE TYPE*"
+                label="EMPLOYEE TYPE"
                 required
                 value={formData.employeeType || 'FULL_TIME'}
                 onChange={(e) => handleChange('employeeType', e.target.value as EmployeeType)}
+                onBlur={() => handleBlur('employeeType')}
+                error={errors.employeeType}
                 options={[
                   { label: 'Full Time', value: 'FULL_TIME' },
                   { label: 'Part Time', value: 'PART_TIME' },
@@ -471,10 +662,12 @@ export const NewEmployeePage: React.FC = () => {
               />
 
               <Select
-                label="EMPLOYMENT STATUS*"
+                label="EMPLOYMENT STATUS"
                 required
                 value={formData.employmentStatus || 'ACTIVE'}
                 onChange={(e) => handleChange('employmentStatus', e.target.value as EmploymentStatus)}
+                onBlur={() => handleBlur('employmentStatus')}
+                error={errors.employmentStatus}
                 options={[
                   { label: 'Active', value: 'ACTIVE' },
                   { label: 'On Leave', value: 'ON_LEAVE' },
@@ -505,13 +698,17 @@ export const NewEmployeePage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <Input
-                    label="MONTHLY GROSS WAGE / SALARY (₹ INR)*"
+                    label="MONTHLY GROSS WAGE / SALARY (₹ INR)"
                     type="number"
-                    min="0"
+                    required
+                    min="1"
+                    max="10000000"
                     step="500"
                     placeholder="e.g. 85000"
                     value={formData.wage ?? ''}
-                    onChange={(e) => handleChange('wage', Number(e.target.value))}
+                    onChange={(e) => handleChange('wage', e.target.value === '' ? '' : Number(e.target.value))}
+                    onBlur={() => handleBlur('wage')}
+                    error={errors.wage}
                     helperText={formData.wage ? `₹${Number(formData.wage).toLocaleString('en-IN')} INR per month (Annual CTC: ₹${(Number(formData.wage) * 12).toLocaleString('en-IN')})` : 'Enter monthly gross CTC'}
                   />
 
@@ -536,9 +733,12 @@ export const NewEmployeePage: React.FC = () => {
                 </div>
 
                 <Select
-                  label="STATUTORY SALARY STRUCTURE*"
+                  label="STATUTORY SALARY STRUCTURE"
+                  required
                   value={formData.salaryStructureId || ''}
                   onChange={(e) => handleChange('salaryStructureId', e.target.value)}
+                  onBlur={() => handleBlur('salaryStructureId')}
+                  error={errors.salaryStructureId}
                   options={[
                     { label: 'Select Salary Structure', value: '' },
                     ...salaryStructures.map((s) => ({
@@ -583,6 +783,8 @@ export const NewEmployeePage: React.FC = () => {
                 placeholder="e.g. HDFC Bank, ICICI Bank"
                 value={formData.bankName || ''}
                 onChange={(e) => handleChange('bankName', e.target.value)}
+                onBlur={() => handleBlur('bankName')}
+                error={errors.bankName}
               />
               <Input
                 label="ACCOUNT HOLDER NAME"
@@ -590,6 +792,8 @@ export const NewEmployeePage: React.FC = () => {
                 placeholder="e.g. Rahul Sharma"
                 value={formData.bankAccountName || ''}
                 onChange={(e) => handleChange('bankAccountName', e.target.value)}
+                onBlur={() => handleBlur('bankAccountName')}
+                error={errors.bankAccountName}
               />
               <Input
                 label="ACCOUNT NUMBER"
@@ -597,13 +801,17 @@ export const NewEmployeePage: React.FC = () => {
                 placeholder="e.g. 5010049281923"
                 value={formData.bankAccountNumber || ''}
                 onChange={(e) => handleChange('bankAccountNumber', e.target.value)}
+                onBlur={() => handleBlur('bankAccountNumber')}
+                error={errors.bankAccountNumber}
               />
               <Input
                 label="IFSC CODE"
                 maxLength={20}
                 placeholder="e.g. HDFC0001234"
                 value={formData.ifscCode || ''}
-                onChange={(e) => handleChange('ifscCode', e.target.value)}
+                onChange={(e) => handleChange('ifscCode', e.target.value.toUpperCase())}
+                onBlur={() => handleBlur('ifscCode')}
+                error={errors.ifscCode}
               />
             </CardContent>
           </Card>
