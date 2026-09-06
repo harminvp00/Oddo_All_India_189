@@ -13,8 +13,8 @@ export interface AuthLayoutProps {
 export const AuthLayout: React.FC<AuthLayoutProps> = ({
   title,
   subtitle,
-  heroHeadline = 'Your workspace, simplified.',
-  heroSubheadline = 'Connect with your team, manage workflows, and build faster during the hackathon.',
+  heroHeadline = 'PeoplePay 360, simplified.',
+  heroSubheadline = 'Manage your workforce, departments, job positions, and payroll in one unified platform.',
   children,
 }) => {
   return (
@@ -72,7 +72,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
 
           {/* Bottom Copyright */}
           <div className="relative z-10 text-[11px] text-blue-100 font-medium border-t border-white/15 pt-4">
-            © 2026 {brand.name} • Hackathon Workspace
+            © 2026 {brand.name} • HR & Payroll System
           </div>
         </div>
 

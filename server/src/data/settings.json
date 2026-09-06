@@ -1,0 +1,23 @@
+{
+  "company": {
+    "companyName": "PeoplePay360 Global Solutions Ltd.",
+    "cinNumber": "CIN-U12345MH2026PTC123456",
+    "gstin": "27AADCB2230M1Z2",
+    "adminEmail": "admin@peoplepay360.com",
+    "companyAddress": "Level 4, Infinity Tower, BKC, Mumbai - 400051",
+    "payrollCutoff": "28",
+    "pfRate": "12",
+    "currency": "INR"
+  },
+  "notifications": {
+    "payrunNotice": false,
+    "leaveRequestUpdates": true,
+    "contractExpiryWarnings": true,
+    "attendanceCorrectionRequests": true
+  },
+  "profile": {
+    "fullName": "Krish Patel",
+    "email": "admin@peoplepay360.com",
+    "role": "SUPER ADMIN (Full System Privileges)"
+  }
+}

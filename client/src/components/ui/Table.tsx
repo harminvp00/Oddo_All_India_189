@@ -2,12 +2,15 @@ import React from 'react';
 import type { TableColumn } from '../../types';
 import { Spinner } from './Spinner';
 
+export type Column<T> = TableColumn<T>;
+
 export interface TableProps<T> {
   columns: TableColumn<T>[];
   data: T[];
   keyExtractor: (item: T) => string | number;
   isLoading?: boolean;
   emptyState?: React.ReactNode;
+  emptyMessage?: string;
   onRowClick?: (item: T) => void;
   className?: string;
 }
@@ -18,6 +21,7 @@ export function Table<T>({
   keyExtractor,
   isLoading = false,
   emptyState,
+  emptyMessage,
   onRowClick,
   className = '',
 }: TableProps<T>) {
@@ -34,7 +38,7 @@ export function Table<T>({
     return (
       <div className="w-full bg-white border border-slate-200 rounded-2xl overflow-hidden">
         {emptyState || (
-          <div className="p-12 text-center text-slate-500 text-sm">No data available</div>
+          <div className="p-12 text-center text-slate-500 text-sm">{emptyMessage || 'No data available'}</div>
         )}
       </div>
     );
@@ -47,8 +51,8 @@ export function Table<T>({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              {columns.map((col) => (
-                <th key={col.key} className={`px-4 py-3.5 ${col.className || ''}`}>
+              {columns.map((col, idx) => (
+                <th key={col.key || col.accessor || idx} className={`px-4 py-3.5 ${col.className || ''}`}>
                   {col.header}
                 </th>
               ))}
@@ -63,11 +67,14 @@ export function Table<T>({
                   onRowClick ? 'cursor-pointer hover:bg-slate-50/80' : 'hover:bg-slate-50/40'
                 }`}
               >
-                {columns.map((col) => (
-                  <td key={col.key} className={`px-4 py-3.5 ${col.className || ''}`}>
-                    {col.render ? col.render(item) : (item as any)[col.key]}
-                  </td>
-                ))}
+                {columns.map((col, idx) => {
+                  const propKey = (col.key || col.accessor || '') as keyof T;
+                  return (
+                    <td key={col.key || col.accessor || idx} className={`px-4 py-3.5 ${col.className || ''}`}>
+                      {col.render ? col.render(item) : propKey ? (item as any)[propKey] : null}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -82,16 +89,19 @@ export function Table<T>({
             onClick={onRowClick ? () => onRowClick(item) : undefined}
             className={`p-4 space-y-2.5 ${onRowClick ? 'cursor-pointer active:bg-slate-50' : ''}`}
           >
-            {columns.map((col) => (
-              <div key={col.key} className="flex items-center justify-between gap-2 text-xs">
-                <span className="font-semibold text-slate-500 text-[11px] uppercase tracking-wide">
-                  {col.header}
-                </span>
-                <div className="text-right">
-                  {col.render ? col.render(item) : (item as any)[col.key]}
+            {columns.map((col, idx) => {
+              const propKey = (col.key || col.accessor || '') as keyof T;
+              return (
+                <div key={col.key || col.accessor || idx} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-semibold text-slate-500 text-[11px] uppercase tracking-wide">
+                    {col.header}
+                  </span>
+                  <div className="text-right">
+                    {col.render ? col.render(item) : propKey ? (item as any)[propKey] : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ))}
       </div>
