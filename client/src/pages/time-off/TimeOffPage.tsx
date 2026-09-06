@@ -156,29 +156,45 @@ export const TimeOffPage: React.FC = () => {
     {
       header: 'Employee',
       accessor: 'employeeId',
-      render: (item) => (
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-xs">
-            {item.employee?.name?.charAt(0) || 'E'}
+      render: (item: any) => {
+        const emp = item.employee || item.employees;
+        const name =
+          emp?.name ||
+          (emp?.firstName || emp?.first_name
+            ? `${emp.firstName || emp.first_name} ${emp.lastName || emp.last_name || ''}`.trim()
+            : item.employeeId
+            ? `Employee #${item.employeeId}`
+            : 'Employee');
+        const code = emp?.employeeCode || emp?.employee_code || '';
+        const initial = name && name !== 'Employee' ? name.charAt(0).toUpperCase() : 'E';
+
+        return (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-xs">
+              {initial}
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 text-sm">{name}</div>
+              {code && <div className="text-xs text-slate-400 font-mono">{code}</div>}
+            </div>
           </div>
-          <div>
-            <div className="font-bold text-slate-900 text-sm">{item.employee?.name || 'My Request'}</div>
-            <div className="text-xs text-slate-400 font-mono">{item.employee?.employeeCode}</div>
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       header: 'Leave Type',
       accessor: 'leaveTypeId',
-      render: (item) => (
-        <div>
-          <span className="font-semibold text-slate-800 text-xs bg-slate-100 px-2 py-0.5 rounded">
-            {item.leaveType?.name || 'General Leave'}
-          </span>
-          <div className="text-[11px] text-slate-400 mt-0.5">{item.leaveType?.code}</div>
-        </div>
-      ),
+      render: (item: any) => {
+        const lt = item.leaveType || item.leave_types;
+        return (
+          <div>
+            <span className="font-semibold text-slate-800 text-xs bg-slate-100 px-2 py-0.5 rounded">
+              {lt?.name || 'General Leave'}
+            </span>
+            {lt?.code && <div className="text-[11px] text-slate-400 mt-0.5">{lt.code}</div>}
+          </div>
+        );
+      },
     },
     {
       header: 'Duration & Dates',
@@ -264,21 +280,36 @@ export const TimeOffPage: React.FC = () => {
     {
       header: 'Employee',
       accessor: 'employeeId',
-      render: (item) => (
-        <div className="flex items-center gap-2">
-          <div className="font-bold text-slate-900 text-sm">{item.employee?.name || 'Employee'}</div>
-          <span className="text-[11px] text-slate-400 font-mono">({item.employee?.employeeCode})</span>
-        </div>
-      ),
+      render: (item: any) => {
+        const emp = item.employee || item.employees;
+        const name =
+          emp?.name ||
+          (emp?.firstName || emp?.first_name
+            ? `${emp.firstName || emp.first_name} ${emp.lastName || emp.last_name || ''}`.trim()
+            : item.employeeId
+            ? `Employee #${item.employeeId}`
+            : 'Employee');
+        const code = emp?.employeeCode || emp?.employee_code || '';
+
+        return (
+          <div className="flex items-center gap-2">
+            <div className="font-bold text-slate-900 text-sm">{name}</div>
+            {code && <span className="text-[11px] text-slate-400 font-mono">({code})</span>}
+          </div>
+        );
+      },
     },
     {
       header: 'Leave Type',
       accessor: 'leaveTypeId',
-      render: (item) => (
-        <span className="font-semibold text-slate-800 text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
-          {item.leaveType?.name || 'Standard'} ({item.leaveType?.code})
-        </span>
-      ),
+      render: (item: any) => {
+        const lt = item.leaveType || item.leave_types;
+        return (
+          <span className="font-semibold text-slate-800 text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
+            {lt?.name || 'Standard'} {lt?.code ? `(${lt.code})` : ''}
+          </span>
+        );
+      },
     },
     {
       header: 'Allocated Quota',

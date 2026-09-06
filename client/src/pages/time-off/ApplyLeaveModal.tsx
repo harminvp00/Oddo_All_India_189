@@ -13,6 +13,25 @@ interface ApplyLeaveModalProps {
   onSuccess: () => void;
 }
 
+const getTodayStr = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const addDaysToDateStr = (dateStr: string, daysToAdd: number): string => {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + daysToAdd);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
   isOpen,
   onClose,
@@ -22,7 +41,8 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
   const [leaveTypeId, setLeaveTypeId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [requestedUnits, setRequestedUnits] = useState<number>(1);
+  const [requestedUnits, setRequestedUnits] = useState<number | string>(1);
+  const [daysError, setDaysError] = useState<string | null>(null);
   const [reason, setReason] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
@@ -48,36 +68,113 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
     };
 
     loadTypes();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayStr();
     setStartDate(today);
     setEndDate(today);
     setRequestedUnits(1);
+    setDaysError(null);
     setReason('');
     setError(null);
   }, [isOpen]);
 
-  // Auto-calculate requested units when dates change
-  const handleDateChange = (start: string, end: string) => {
-    setStartDate(start);
-    setEndDate(end);
+  // Handle start date change and sync end date based on current requestedUnits
+  const handleStartDateChange = (newStart: string) => {
+    setStartDate(newStart);
+    setError(null);
 
-    if (start && end) {
-      const d1 = new Date(start).getTime();
-      const d2 = new Date(end).getTime();
-      if (d2 >= d1) {
-        const diffDays = Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
-        setRequestedUnits(diffDays);
-        setError(null);
-      } else {
-        setRequestedUnits(0);
+    const today = getTodayStr();
+    if (newStart && newStart < today) {
+      setError('Start date must be greater than or equal to current date.');
+      return;
+    }
+
+    const unitsNum = Number(requestedUnits);
+    if (!isNaN(unitsNum) && unitsNum > 0 && newStart) {
+      const offsetDays = Math.max(0, Math.ceil(unitsNum) - 1);
+      const newEnd = addDaysToDateStr(newStart, offsetDays);
+      setEndDate(newEnd);
+    } else if (newStart && endDate && endDate < newStart) {
+      setEndDate(newStart);
+    }
+  };
+
+  // Handle end date change and recalculate requested units
+  const handleEndDateChange = (newEnd: string) => {
+    setEndDate(newEnd);
+    setError(null);
+
+    const today = getTodayStr();
+    if (newEnd && newEnd < today) {
+      setError('End date must be greater than or equal to current date.');
+      return;
+    }
+
+    if (startDate && newEnd) {
+      if (newEnd < startDate) {
         setError('End date cannot be before start date.');
+        return;
       }
+      const d1 = new Date(startDate).getTime();
+      const d2 = new Date(newEnd).getTime();
+      const diffDays = Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+      setRequestedUnits(diffDays);
+      setDaysError(null);
+    }
+  };
+
+  // Handle direct changes to requested units and sync end date
+  const handleUnitsChange = (valStr: string) => {
+    if (valStr === '') {
+      setRequestedUnits('');
+      setDaysError('Days is required.');
+      return;
+    }
+
+    // Number-only validation: digits and optional single decimal point
+    if (!/^\d*\.?\d*$/.test(valStr)) {
+      setDaysError('Only positive numbers are allowed.');
+      return;
+    }
+
+    const num = Number(valStr);
+    if (isNaN(num) || num <= 0) {
+      setRequestedUnits(valStr);
+      setDaysError('Days must be greater than 0.');
+      return;
+    }
+
+    setDaysError(null);
+    setError(null);
+    setRequestedUnits(valStr);
+
+    if (startDate) {
+      const offsetDays = Math.max(0, Math.ceil(num) - 1);
+      const newEnd = addDaysToDateStr(startDate, offsetDays);
+      setEndDate(newEnd);
+    }
+  };
+
+  const handleUnitsKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Disallow exponent 'e', 'E' and negative/positive signs '+', '-'
+    if (['e', 'E', '+', '-'].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  const handleUnitsBlur = () => {
+    const num = Number(requestedUnits);
+    if (requestedUnits === '' || isNaN(num) || num <= 0) {
+      setDaysError('Days must be a valid positive number.');
+    } else {
+      setDaysError(null);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const today = getTodayStr();
 
     if (!leaveTypeId) {
       setError('Please select a leave policy.');
@@ -91,21 +188,37 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
       setError('End date is required.');
       return;
     }
+    if (startDate < today) {
+      setError('Start date must be greater than or equal to current date.');
+      return;
+    }
+    if (endDate < today) {
+      setError('End date must be greater than or equal to current date.');
+      return;
+    }
     if (new Date(endDate) < new Date(startDate)) {
       setError('End date cannot be before start date.');
       return;
     }
-    if (isNaN(requestedUnits) || requestedUnits <= 0) {
+
+    const unitsNum = Number(requestedUnits);
+    if (
+      requestedUnits === '' ||
+      isNaN(unitsNum) ||
+      unitsNum <= 0 ||
+      !/^\d*\.?\d*$/.test(String(requestedUnits))
+    ) {
+      setDaysError('Days must be a valid positive number.');
       setError('Requested units must be greater than 0 days.');
       return;
     }
 
     if (
       selectedType?.maxConsecutiveUnits &&
-      requestedUnits > Number(selectedType.maxConsecutiveUnits)
+      unitsNum > Number(selectedType.maxConsecutiveUnits)
     ) {
       setError(
-        `Requested duration (${requestedUnits} days) exceeds the maximum consecutive limit of ${selectedType.maxConsecutiveUnits} days allowed for ${selectedType.name}.`
+        `Requested duration (${unitsNum} days) exceeds the maximum consecutive limit of ${selectedType.maxConsecutiveUnits} days allowed for ${selectedType.name}.`
       );
       return;
     }
@@ -121,7 +234,7 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
         leaveTypeId,
         startDate,
         endDate,
-        requestedUnits: Number(requestedUnits),
+        requestedUnits: unitsNum,
         reason: reason.trim() || undefined,
       };
 
@@ -191,17 +304,18 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
             label="START DATE"
             type="date"
             required
+            min={getTodayStr()}
             value={startDate}
-            onChange={(e) => handleDateChange(e.target.value, endDate)}
+            onChange={(e) => handleStartDateChange(e.target.value)}
           />
 
           <Input
             label="END DATE"
             type="date"
             required
-            min={startDate}
+            min={startDate && startDate > getTodayStr() ? startDate : getTodayStr()}
             value={endDate}
-            onChange={(e) => handleDateChange(startDate, e.target.value)}
+            onChange={(e) => handleEndDateChange(e.target.value)}
           />
         </div>
 
@@ -212,10 +326,10 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({
           min="0.5"
           required
           value={requestedUnits}
-          onChange={(e) => {
-            setRequestedUnits(Number(e.target.value));
-            setError(null);
-          }}
+          error={daysError || undefined}
+          onKeyDown={handleUnitsKeyDown}
+          onChange={(e) => handleUnitsChange(e.target.value)}
+          onBlur={handleUnitsBlur}
           helperText="Calculated from date range. You can adjust for half-day requests (e.g. 0.5)."
         />
 

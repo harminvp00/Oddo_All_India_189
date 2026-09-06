@@ -86,9 +86,81 @@ function serialize(value: unknown): unknown {
   }
 
   if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, serialize(item)]),
-    );
+    const raw = value as Record<string, any>;
+    const res: Record<string, any> = {};
+
+    for (const [key, item] of Object.entries(raw)) {
+      res[key] = serialize(item);
+    }
+
+    const emp = raw.employees || raw.employee;
+    if (emp) {
+      const firstName = emp.first_name ?? emp.firstName ?? "";
+      const lastName = emp.last_name ?? emp.lastName ?? "";
+      const name = `${firstName} ${lastName}`.trim() || emp.name;
+      const employeeCode = emp.employee_code ?? emp.employeeCode ?? "";
+
+      const employeeObj = {
+        id: emp.id ? emp.id.toString() : undefined,
+        employeeCode,
+        firstName,
+        lastName,
+        name,
+      };
+      res.employee = employeeObj;
+      res.employees = employeeObj;
+    }
+
+    const lt = raw.leave_types || raw.leaveType;
+    if (lt) {
+      const leaveTypeObj = {
+        id: lt.id ? lt.id.toString() : undefined,
+        name: lt.name,
+        code: lt.code,
+        unit: lt.unit,
+      };
+      res.leaveType = leaveTypeObj;
+      res.leave_types = leaveTypeObj;
+    }
+
+    if (raw.employee_id !== undefined && res.employeeId === undefined) {
+      res.employeeId = raw.employee_id.toString();
+    }
+    if (raw.leave_type_id !== undefined && res.leaveTypeId === undefined) {
+      res.leaveTypeId = raw.leave_type_id.toString();
+    }
+    if (raw.allocation_id !== undefined && res.allocationId === undefined) {
+      res.allocationId = raw.allocation_id ? raw.allocation_id.toString() : null;
+    }
+    if (raw.start_date !== undefined && res.startDate === undefined) {
+      res.startDate = raw.start_date instanceof Date ? raw.start_date.toISOString().split("T")[0] : raw.start_date;
+    }
+    if (raw.end_date !== undefined && res.endDate === undefined) {
+      res.endDate = raw.end_date instanceof Date ? raw.end_date.toISOString().split("T")[0] : raw.end_date;
+    }
+    if (raw.requested_units !== undefined && res.requestedUnits === undefined) {
+      res.requestedUnits = decimalNumber(raw.requested_units);
+    }
+    if (raw.allocated_units !== undefined && res.allocatedUnits === undefined) {
+      res.allocatedUnits = decimalNumber(raw.allocated_units);
+    }
+    if (raw.used_units !== undefined && res.usedUnits === undefined) {
+      res.usedUnits = decimalNumber(raw.used_units);
+    }
+    if (raw.valid_from !== undefined && res.validFrom === undefined) {
+      res.validFrom = raw.valid_from instanceof Date ? raw.valid_from.toISOString().split("T")[0] : raw.valid_from;
+    }
+    if (raw.valid_to !== undefined && res.validTo === undefined) {
+      res.validTo = raw.valid_to instanceof Date ? raw.valid_to.toISOString().split("T")[0] : raw.valid_to;
+    }
+    if (raw.approved_by !== undefined && res.approvedBy === undefined) {
+      res.approvedBy = raw.approved_by ? raw.approved_by.toString() : null;
+    }
+    if (raw.approved_at !== undefined && res.approvedAt === undefined) {
+      res.approvedAt = raw.approved_at instanceof Date ? raw.approved_at.toISOString() : raw.approved_at;
+    }
+
+    return res;
   }
 
   return value;
@@ -265,6 +337,24 @@ export class TimeOffService {
         orderBy: [{ valid_from: "desc" }, { id: "desc" }],
         skip,
         take: input.limit,
+        include: {
+          employees: {
+            select: {
+              id: true,
+              employee_code: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+          leave_types: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              unit: true,
+            },
+          },
+        },
       }),
       prisma.leave_allocations.count({ where }),
     ]);
@@ -283,6 +373,24 @@ export class TimeOffService {
   async getAllocation(id: bigint, currentEmployeeId?: bigint) {
     const allocation = await prisma.leave_allocations.findUnique({
       where: { id },
+      include: {
+        employees: {
+          select: {
+            id: true,
+            employee_code: true,
+            first_name: true,
+            last_name: true,
+          },
+        },
+        leave_types: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            unit: true,
+          },
+        },
+      },
     });
 
     if (!allocation) {
@@ -471,6 +579,24 @@ export class TimeOffService {
         orderBy: [{ start_date: "desc" }, { id: "desc" }],
         skip,
         take: input.limit,
+        include: {
+          employees: {
+            select: {
+              id: true,
+              employee_code: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+          leave_types: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              unit: true,
+            },
+          },
+        },
       }),
       prisma.leave_requests.count({ where }),
     ]);
@@ -492,6 +618,24 @@ export class TimeOffService {
   ) {
     const request = await prisma.leave_requests.findUnique({
       where: { id },
+      include: {
+        employees: {
+          select: {
+            id: true,
+            employee_code: true,
+            first_name: true,
+            last_name: true,
+          },
+        },
+        leave_types: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            unit: true,
+          },
+        },
+      },
     });
 
     if (!request) {
