@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { Alert } from '../../components/ui/Alert';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Layers, Plus, Edit, Eye, CheckCircle2, ChevronRight, Sliders, Users, FileText } from 'lucide-react';
 
@@ -85,15 +86,144 @@ export const SalaryStructuresPage: React.FC = () => {
     type: 'Monthly',
     description: '',
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const validateField = (field: string, customVal?: string): string | null => {
+    const val = (customVal !== undefined ? customVal : (form as any)[field] || '').trim();
+
+    switch (field) {
+      case 'name': {
+        if (!val) return 'Structure name is required.';
+        if (val.length < 3) return 'Structure name must be at least 3 characters.';
+        if (val.length > 100) return 'Structure name cannot exceed 100 characters.';
+        if (!/^[a-zA-Z0-9\s()&/.,'-]+$/.test(val)) {
+          return 'Structure name contains invalid characters. Use letters, numbers, and basic punctuation.';
+        }
+        const nameExists = structures.some(
+          (s) => s.name.trim().toLowerCase() === val.toLowerCase()
+        );
+        if (nameExists) {
+          return 'A salary structure with this name already exists. Please choose a distinct name.';
+        }
+        return null;
+      }
+      case 'code': {
+        if (!val) return 'Structure unique code is required.';
+        if (val.length < 2) return 'Structure code must be at least 2 characters.';
+        if (val.length > 30) return 'Structure code cannot exceed 30 characters.';
+        if (!/^[A-Za-z0-9_-]+$/.test(val)) {
+          return 'Code must contain only letters, numbers, hyphens, and underscores (no spaces).';
+        }
+        const codeExists = structures.some(
+          (s) => s.code.trim().toUpperCase() === val.toUpperCase()
+        );
+        if (codeExists) {
+          return 'A salary structure with this code already exists. Code must be unique.';
+        }
+        return null;
+      }
+      case 'type': {
+        if (!val) return 'Payment periodicity is required.';
+        const allowedTypes = ['Monthly', 'Fixed', 'Hourly'];
+        if (!allowedTypes.includes(val)) {
+          return 'Please select a valid payment periodicity (Monthly, Fixed, or Hourly).';
+        }
+        return null;
+      }
+      case 'description': {
+        if (val && val.length > 500) {
+          return 'Description cannot exceed 500 characters.';
+        }
+        return null;
+      }
+      default:
+        return null;
+    }
+  };
+
+  const handleBlur = (field: string) => {
+    const err = validateField(field);
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (err) {
+        next[field] = err;
+      } else {
+        delete next[field];
+      }
+      return next;
+    });
+  };
+
+  const handleChange = (field: string, value: string) => {
+    const formattedVal = field === 'code' ? value.toUpperCase().replace(/\s+/g, '_') : value;
+    setForm((prev) => ({ ...prev, [field]: formattedVal }));
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+    if (formError) {
+      setFormError(null);
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const fields = ['name', 'code', 'type', 'description'];
+    const newErrors: Record<string, string> = {};
+
+    for (const field of fields) {
+      const err = validateField(field);
+      if (err) {
+        newErrors[field] = err;
+      }
+    }
+
+    setErrors(newErrors);
+
+    const errorCount = Object.keys(newErrors).length;
+    if (errorCount > 0) {
+      const firstError = Object.values(newErrors)[0];
+      setFormError(
+        errorCount === 1
+          ? firstError
+          : `Please fix the ${errorCount} errors highlighted below before saving.`
+      );
+      return false;
+    }
+
+    setFormError(null);
+    return true;
+  };
+
+  const handleOpenModal = () => {
+    setForm({ name: '', code: '', type: 'Monthly', description: '' });
+    setErrors({});
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setErrors({});
+    setFormError(null);
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) {
+      return;
+    }
+
     const newStructure: SalaryStructureItem = {
       id: `st-${Date.now()}`,
-      name: form.name,
-      code: form.code.toUpperCase(),
+      name: form.name.trim(),
+      code: form.code.trim().toUpperCase(),
       type: form.type,
-      description: form.description,
+      description: form.description.trim(),
       rulesCount: 4,
       assignedEmployees: 0,
       status: 'Active',
@@ -101,11 +231,15 @@ export const SalaryStructuresPage: React.FC = () => {
         { sequence: 10, code: 'BASIC', name: 'Basic Salary', category: 'Basic' },
         { sequence: 20, code: 'HRA', name: 'HRA Allowance', category: 'Allowance' },
         { sequence: 50, code: 'PF', name: 'PF Deduction', category: 'Deduction' },
-      ]
+      ],
     };
-    setStructures([...structures, newStructure]);
+
+    setStructures((prev) => [newStructure, ...prev]);
     setIsModalOpen(false);
     setForm({ name: '', code: '', type: 'Monthly', description: '' });
+    setErrors({});
+    setFormError(null);
+    setSuccessMsg(`Salary structure "${newStructure.name}" (${newStructure.code}) created successfully.`);
   };
 
   const columns: Column<SalaryStructureItem>[] = [
@@ -182,12 +316,18 @@ export const SalaryStructuresPage: React.FC = () => {
           <Button 
             variant="primary" 
             leftIcon={<Plus className="w-4 h-4" />} 
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenModal}
           >
             Create Structure
           </Button>
         }
       />
+
+      {successMsg && (
+        <Alert variant="success" title="Success" onClose={() => setSuccessMsg(null)}>
+          {successMsg}
+        </Alert>
+      )}
 
       {/* KPI Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -286,43 +426,67 @@ export const SalaryStructuresPage: React.FC = () => {
       {/* Create Structure Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
         title="Create Salary Structure"
       >
-        <form onSubmit={handleCreate} className="space-y-4">
+        <form onSubmit={handleCreate} className="space-y-4" noValidate>
+          {formError && (
+            <Alert variant="danger" title="Validation Error" onClose={() => setFormError(null)}>
+              {formError}
+            </Alert>
+          )}
+
           <Input 
-            label="STRUCTURE NAME *" 
+            label="STRUCTURE NAME" 
             placeholder="e.g. Standard Executive Salary" 
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={(e) => handleChange('name', e.target.value)}
+            onBlur={() => handleBlur('name')}
+            error={errors.name}
+            maxLength={100}
             required
+            helperText="Descriptive label for contracts and payslip templates (min 3 characters)"
           />
+
           <Input 
-            label="UNIQUE CODE *" 
+            label="UNIQUE STRUCTURE CODE" 
             placeholder="e.g. EXEC_SALARY" 
             value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value })}
+            onChange={(e) => handleChange('code', e.target.value)}
+            onBlur={() => handleBlur('code')}
+            error={errors.code}
+            maxLength={30}
             required
+            helperText="Uppercase alphanumeric identifier with hyphens or underscores (e.g. EXEC_MGMT)"
           />
+
           <Select 
-            label="PERIODICITY"
+            label="PAYMENT PERIODICITY"
             value={form.type}
-            onChange={(e) => setForm({ ...form, type: e.target.value })}
+            onChange={(e) => handleChange('type', e.target.value)}
+            onBlur={() => handleBlur('type')}
+            error={errors.type}
+            required
             options={[
               { label: 'Monthly Payroll', value: 'Monthly' },
               { label: 'Fixed Contractual', value: 'Fixed' },
               { label: 'Hourly Wage', value: 'Hourly' }
             ]}
           />
+
           <Input 
             label="DESCRIPTION" 
             placeholder="Purpose and applicable department groups..." 
             value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            onChange={(e) => handleChange('description', e.target.value)}
+            onBlur={() => handleBlur('description')}
+            error={errors.description}
+            maxLength={500}
+            helperText="Optional summary of structure rules and employee eligibility (max 500 characters)"
           />
 
           <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
-            <Button variant="ghost" type="button" onClick={() => setIsModalOpen(false)}>
+            <Button variant="ghost" type="button" onClick={handleCloseModal}>
               Cancel
             </Button>
             <Button variant="primary" type="submit">

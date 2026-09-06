@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { prisma } from "../../config/database"
+import { prisma } from "../../config/database";
 import {
   AllocationCreateInput,
   AllocationListInput,
@@ -86,9 +86,81 @@ function serialize(value: unknown): unknown {
   }
 
   if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, serialize(item)]),
-    );
+    const raw = value as Record<string, any>;
+    const res: Record<string, any> = {};
+
+    for (const [key, item] of Object.entries(raw)) {
+      res[key] = serialize(item);
+    }
+
+    const emp = raw.employees || raw.employee;
+    if (emp) {
+      const firstName = emp.first_name ?? emp.firstName ?? "";
+      const lastName = emp.last_name ?? emp.lastName ?? "";
+      const name = `${firstName} ${lastName}`.trim() || emp.name;
+      const employeeCode = emp.employee_code ?? emp.employeeCode ?? "";
+
+      const employeeObj = {
+        id: emp.id ? emp.id.toString() : undefined,
+        employeeCode,
+        firstName,
+        lastName,
+        name,
+      };
+      res.employee = employeeObj;
+      res.employees = employeeObj;
+    }
+
+    const lt = raw.leave_types || raw.leaveType;
+    if (lt) {
+      const leaveTypeObj = {
+        id: lt.id ? lt.id.toString() : undefined,
+        name: lt.name,
+        code: lt.code,
+        unit: lt.unit,
+      };
+      res.leaveType = leaveTypeObj;
+      res.leave_types = leaveTypeObj;
+    }
+
+    if (raw.employee_id !== undefined && res.employeeId === undefined) {
+      res.employeeId = raw.employee_id.toString();
+    }
+    if (raw.leave_type_id !== undefined && res.leaveTypeId === undefined) {
+      res.leaveTypeId = raw.leave_type_id.toString();
+    }
+    if (raw.allocation_id !== undefined && res.allocationId === undefined) {
+      res.allocationId = raw.allocation_id ? raw.allocation_id.toString() : null;
+    }
+    if (raw.start_date !== undefined && res.startDate === undefined) {
+      res.startDate = raw.start_date instanceof Date ? raw.start_date.toISOString().split("T")[0] : raw.start_date;
+    }
+    if (raw.end_date !== undefined && res.endDate === undefined) {
+      res.endDate = raw.end_date instanceof Date ? raw.end_date.toISOString().split("T")[0] : raw.end_date;
+    }
+    if (raw.requested_units !== undefined && res.requestedUnits === undefined) {
+      res.requestedUnits = decimalNumber(raw.requested_units);
+    }
+    if (raw.allocated_units !== undefined && res.allocatedUnits === undefined) {
+      res.allocatedUnits = decimalNumber(raw.allocated_units);
+    }
+    if (raw.used_units !== undefined && res.usedUnits === undefined) {
+      res.usedUnits = decimalNumber(raw.used_units);
+    }
+    if (raw.valid_from !== undefined && res.validFrom === undefined) {
+      res.validFrom = raw.valid_from instanceof Date ? raw.valid_from.toISOString().split("T")[0] : raw.valid_from;
+    }
+    if (raw.valid_to !== undefined && res.validTo === undefined) {
+      res.validTo = raw.valid_to instanceof Date ? raw.valid_to.toISOString().split("T")[0] : raw.valid_to;
+    }
+    if (raw.approved_by !== undefined && res.approvedBy === undefined) {
+      res.approvedBy = raw.approved_by ? raw.approved_by.toString() : null;
+    }
+    if (raw.approved_at !== undefined && res.approvedAt === undefined) {
+      res.approvedAt = raw.approved_at instanceof Date ? raw.approved_at.toISOString() : raw.approved_at;
+    }
+
+    return res;
   }
 
   return value;
@@ -107,7 +179,7 @@ export class TimeOffService {
     search?: string;
     isActive?: boolean;
   }) {
-    return prisma.leaveType.findMany({
+    return prisma.leave_types.findMany({
       where: {
         ...(input.search
           ? {
@@ -129,7 +201,7 @@ export class TimeOffService {
           : {}),
         ...(input.isActive === undefined
           ? {}
-          : { isActive: input.isActive }),
+          : { is_active: input.isActive }),
       },
       orderBy: { name: "asc" },
     });
@@ -137,16 +209,16 @@ export class TimeOffService {
 
   async createLeaveType(input: LeaveTypeCreateInput) {
     try {
-      return await prisma.leaveType.create({
+      return await prisma.leave_types.create({
         data: {
           name: input.name,
           code: input.code.toUpperCase(),
           unit: input.unit,
-          requiresAllocation: input.requiresAllocation,
-          requiresApproval: input.requiresApproval,
-          payrollDeductible: input.payrollDeductible,
-          maxConsecutiveUnits: input.maxConsecutiveUnits,
-          isActive: input.isActive,
+          requires_allocation: input.requiresAllocation,
+          requires_approval: input.requiresApproval,
+          payroll_deductible: input.payrollDeductible,
+          max_consecutive_units: input.maxConsecutiveUnits,
+          is_active: input.isActive,
         },
       });
     } catch (error: any) {
@@ -167,7 +239,7 @@ export class TimeOffService {
     input: LeaveTypeUpdateInput,
   ) {
     try {
-      return await prisma.leaveType.update({
+      return await prisma.leave_types.update({
         where: { id },
         data: {
           ...(input.name !== undefined ? { name: input.name } : {}),
@@ -176,19 +248,19 @@ export class TimeOffService {
             : {}),
           ...(input.unit !== undefined ? { unit: input.unit } : {}),
           ...(input.requiresAllocation !== undefined
-            ? { requiresAllocation: input.requiresAllocation }
+            ? { requires_allocation: input.requiresAllocation }
             : {}),
           ...(input.requiresApproval !== undefined
-            ? { requiresApproval: input.requiresApproval }
+            ? { requires_approval: input.requiresApproval }
             : {}),
           ...(input.payrollDeductible !== undefined
-            ? { payrollDeductible: input.payrollDeductible }
+            ? { payroll_deductible: input.payrollDeductible }
             : {}),
           ...(input.maxConsecutiveUnits !== undefined
-            ? { maxConsecutiveUnits: input.maxConsecutiveUnits }
+            ? { max_consecutive_units: input.maxConsecutiveUnits }
             : {}),
           ...(input.isActive !== undefined
-            ? { isActive: input.isActive }
+            ? { is_active: input.isActive }
             : {}),
         },
       });
@@ -215,7 +287,7 @@ export class TimeOffService {
 
   async deleteLeaveType(id: bigint) {
     try {
-      return await prisma.leaveType.delete({
+      return await prisma.leave_types.delete({
         where: { id },
       });
     } catch (error: any) {
@@ -247,12 +319,12 @@ export class TimeOffService {
     input: AllocationListInput,
     currentEmployeeId?: bigint,
   ) {
-    const employeeId = currentEmployeeId ?? input.employeeId;
+    const employee_id = currentEmployeeId ?? input.employeeId;
 
     const where = {
-      ...(employeeId !== undefined ? { employeeId } : {}),
+      ...(employee_id !== undefined ? { employee_id } : {}),
       ...(input.leaveTypeId !== undefined
-        ? { leaveTypeId: input.leaveTypeId }
+        ? { leave_type_id: input.leaveTypeId }
         : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
     };
@@ -260,13 +332,31 @@ export class TimeOffService {
     const skip = (input.page - 1) * input.limit;
 
     const [data, total] = await prisma.$transaction([
-      prisma.leaveAllocation.findMany({
+      prisma.leave_allocations.findMany({
         where,
-        orderBy: [{ validFrom: "desc" }, { id: "desc" }],
+        orderBy: [{ valid_from: "desc" }, { id: "desc" }],
         skip,
         take: input.limit,
+        include: {
+          employees: {
+            select: {
+              id: true,
+              employee_code: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+          leave_types: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              unit: true,
+            },
+          },
+        },
       }),
-      prisma.leaveAllocation.count({ where }),
+      prisma.leave_allocations.count({ where }),
     ]);
 
     return {
@@ -281,8 +371,26 @@ export class TimeOffService {
   }
 
   async getAllocation(id: bigint, currentEmployeeId?: bigint) {
-    const allocation = await prisma.leaveAllocation.findUnique({
+    const allocation = await prisma.leave_allocations.findUnique({
       where: { id },
+      include: {
+        employees: {
+          select: {
+            id: true,
+            employee_code: true,
+            first_name: true,
+            last_name: true,
+          },
+        },
+        leave_types: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            unit: true,
+          },
+        },
+      },
     });
 
     if (!allocation) {
@@ -295,7 +403,7 @@ export class TimeOffService {
 
     if (
       currentEmployeeId !== undefined &&
-      allocation.employeeId !== currentEmployeeId
+      allocation.employee_id !== currentEmployeeId
     ) {
       throw new TimeOffServiceError(
         "FORBIDDEN",
@@ -311,7 +419,7 @@ export class TimeOffService {
     input: AllocationCreateInput,
     actingUserId: bigint,
   ) {
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employees.findUnique({
       where: { id: input.employeeId },
     });
 
@@ -323,7 +431,7 @@ export class TimeOffService {
       );
     }
 
-    const leaveType = await prisma.leaveType.findUnique({
+    const leaveType = await prisma.leave_types.findUnique({
       where: { id: input.leaveTypeId },
     });
 
@@ -335,7 +443,7 @@ export class TimeOffService {
       );
     }
 
-    if (!leaveType.isActive) {
+    if (!leaveType.is_active) {
       throw new TimeOffServiceError(
         "LEAVE_TYPE_INACTIVE",
         "Cannot allocate an inactive leave type",
@@ -349,19 +457,19 @@ export class TimeOffService {
       );
     }
 
-    return prisma.leaveAllocation.create({
+    return prisma.leave_allocations.create({
       data: {
-        employeeId: input.employeeId,
-        leaveTypeId: input.leaveTypeId,
-        validFrom: toDate(input.validFrom),
-        validTo: toDate(input.validTo),
-        allocatedUnits: input.allocatedUnits,
-        usedUnits: 0,
+        employee_id: input.employeeId,
+        leave_type_id: input.leaveTypeId,
+        valid_from: toDate(input.validFrom),
+        valid_to: toDate(input.validTo),
+        allocated_units: input.allocatedUnits,
+        used_units: 0,
         status: input.status,
         ...(input.status === "APPROVED"
           ? {
-              approvedBy: actingUserId,
-              approvedAt: new Date(),
+              approved_by: actingUserId,
+              approved_at: new Date(),
             }
           : {}),
       },
@@ -373,7 +481,7 @@ export class TimeOffService {
     input: AllocationUpdateInput,
     actingUserId: bigint,
   ) {
-    const allocation = await prisma.leaveAllocation.findUnique({
+    const allocation = await prisma.leave_allocations.findUnique({
       where: { id },
     });
 
@@ -385,8 +493,8 @@ export class TimeOffService {
       );
     }
 
-    const currentAllocated = decimalNumber(allocation.allocatedUnits);
-    const currentUsed = decimalNumber(allocation.usedUnits);
+    const currentAllocated = decimalNumber(allocation.allocated_units);
+    const currentUsed = decimalNumber(allocation.used_units);
 
     const allocatedUnits =
       input.allocatedUnits ?? currentAllocated;
@@ -400,11 +508,11 @@ export class TimeOffService {
 
     const validFrom = input.validFrom
       ? toDate(input.validFrom)
-      : allocation.validFrom;
+      : allocation.valid_from;
 
     const validTo = input.validTo
       ? toDate(input.validTo)
-      : allocation.validTo;
+      : allocation.valid_to;
 
     if (validTo < validFrom) {
       throw new TimeOffServiceError(
@@ -419,17 +527,17 @@ export class TimeOffService {
       nextStatus === "APPROVED" &&
       allocation.status !== "APPROVED";
 
-    return prisma.leaveAllocation.update({
+    return prisma.leave_allocations.update({
       where: { id },
       data: {
-        validFrom,
-        validTo,
-        allocatedUnits,
+        valid_from: validFrom,
+        valid_to: validTo,
+        allocated_units: allocatedUnits,
         status: nextStatus,
         ...(approving
           ? {
-              approvedBy: actingUserId,
-              approvedAt: new Date(),
+              approved_by: actingUserId,
+              approved_at: new Date(),
             }
           : {}),
       },
@@ -444,14 +552,14 @@ export class TimeOffService {
     input: LeaveRequestListInput,
     currentEmployeeId?: bigint,
   ) {
-    const employeeId = currentEmployeeId ?? input.employeeId;
+    const employee_id = currentEmployeeId ?? input.employeeId;
 
     const where = {
-      ...(employeeId !== undefined ? { employeeId } : {}),
+      ...(employee_id !== undefined ? { employee_id } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.startDate || input.endDate
         ? {
-            startDate: {
+            start_date: {
               ...(input.startDate
                 ? { gte: toDate(input.startDate) }
                 : {}),
@@ -466,13 +574,31 @@ export class TimeOffService {
     const skip = (input.page - 1) * input.limit;
 
     const [data, total] = await prisma.$transaction([
-      prisma.leaveRequest.findMany({
+      prisma.leave_requests.findMany({
         where,
-        orderBy: [{ startDate: "desc" }, { id: "desc" }],
+        orderBy: [{ start_date: "desc" }, { id: "desc" }],
         skip,
         take: input.limit,
+        include: {
+          employees: {
+            select: {
+              id: true,
+              employee_code: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+          leave_types: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              unit: true,
+            },
+          },
+        },
       }),
-      prisma.leaveRequest.count({ where }),
+      prisma.leave_requests.count({ where }),
     ]);
 
     return {
@@ -490,8 +616,26 @@ export class TimeOffService {
     id: bigint,
     currentEmployeeId?: bigint,
   ) {
-    const request = await prisma.leaveRequest.findUnique({
+    const request = await prisma.leave_requests.findUnique({
       where: { id },
+      include: {
+        employees: {
+          select: {
+            id: true,
+            employee_code: true,
+            first_name: true,
+            last_name: true,
+          },
+        },
+        leave_types: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            unit: true,
+          },
+        },
+      },
     });
 
     if (!request) {
@@ -504,7 +648,7 @@ export class TimeOffService {
 
     if (
       currentEmployeeId !== undefined &&
-      request.employeeId !== currentEmployeeId
+      request.employee_id !== currentEmployeeId
     ) {
       throw new TimeOffServiceError(
         "FORBIDDEN",
@@ -521,7 +665,7 @@ export class TimeOffService {
     employeeId: bigint,
     actingUserId: bigint,
   ) {
-    const employee = await prisma.employee.findUnique({
+    const employee = await prisma.employees.findUnique({
       where: { id: employeeId },
     });
 
@@ -533,7 +677,7 @@ export class TimeOffService {
       );
     }
 
-    const leaveType = await prisma.leaveType.findUnique({
+    const leaveType = await prisma.leave_types.findUnique({
       where: { id: input.leaveTypeId },
     });
 
@@ -545,7 +689,7 @@ export class TimeOffService {
       );
     }
 
-    if (!leaveType.isActive) {
+    if (!leaveType.is_active) {
       throw new TimeOffServiceError(
         "LEAVE_TYPE_INACTIVE",
         "Cannot request an inactive leave type",
@@ -553,20 +697,20 @@ export class TimeOffService {
     }
 
     if (
-      leaveType.maxConsecutiveUnits !== null &&
-      leaveType.maxConsecutiveUnits !== undefined &&
+      leaveType.max_consecutive_units !== null &&
+      leaveType.max_consecutive_units !== undefined &&
       input.requestedUnits >
-        decimalNumber(leaveType.maxConsecutiveUnits)
+        decimalNumber(leaveType.max_consecutive_units)
     ) {
       throw new TimeOffServiceError(
         "MAX_CONSECUTIVE_LIMIT",
         `Requested units exceed the maximum consecutive limit of ${decimalNumber(
-          leaveType.maxConsecutiveUnits,
+          leaveType.max_consecutive_units,
         )}`,
       );
     }
 
-    const allocation = leaveType.requiresAllocation
+    const allocation = leaveType.requires_allocation
       ? await this.findSufficientAllocation(
           employeeId,
           input.leaveTypeId,
@@ -576,14 +720,14 @@ export class TimeOffService {
         )
       : null;
 
-    if (leaveType.requiresAllocation && !allocation) {
+    if (leaveType.requires_allocation && !allocation) {
       throw new TimeOffServiceError(
         "INSUFFICIENT_LEAVE_BALANCE",
         "Insufficient leave balance",
       );
     }
 
-    if (!leaveType.requiresApproval) {
+    if (!leaveType.requires_approval) {
       return this.approveNewRequestImmediately(
         input,
         employeeId,
@@ -592,14 +736,14 @@ export class TimeOffService {
       );
     }
 
-    return prisma.leaveRequest.create({
+    return prisma.leave_requests.create({
       data: {
-        employeeId,
-        leaveTypeId: input.leaveTypeId,
-        allocationId: allocation?.id ?? null,
-        startDate: toDate(input.startDate),
-        endDate: toDate(input.endDate),
-        requestedUnits: input.requestedUnits,
+        employee_id: employeeId,
+        leave_type_id: input.leaveTypeId,
+        allocation_id: allocation?.id ?? null,
+        start_date: toDate(input.startDate),
+        end_date: toDate(input.endDate),
+        requested_units: input.requestedUnits,
         reason: input.reason,
         status: "PENDING",
       },
@@ -613,22 +757,22 @@ export class TimeOffService {
     endDate: string,
     requestedUnits: number,
   ) {
-    const allocations = await prisma.leaveAllocation.findMany({
+    const allocations = await prisma.leave_allocations.findMany({
       where: {
-        employeeId,
-        leaveTypeId,
+        employee_id: employeeId,
+        leave_type_id: leaveTypeId,
         status: "APPROVED",
-        validFrom: { lte: toDate(startDate) },
-        validTo: { gte: toDate(endDate) },
+        valid_from: { lte: toDate(startDate) },
+        valid_to: { gte: toDate(endDate) },
       },
-      orderBy: { validFrom: "asc" },
+      orderBy: { valid_from: "asc" },
     });
 
     return (
       allocations.find((allocation: any) => {
         const available = calculateAvailableUnits(
-          decimalNumber(allocation.allocatedUnits),
-          decimalNumber(allocation.usedUnits),
+          decimalNumber(allocation.allocated_units),
+          decimalNumber(allocation.used_units),
         );
 
         return available >= requestedUnits;
@@ -644,7 +788,7 @@ export class TimeOffService {
   ) {
     return prisma.$transaction(async (tx: any) => {
       if (allocationId !== undefined) {
-        const allocation = await tx.leaveAllocation.findUnique({
+        const allocation = await tx.leave_allocations.findUnique({
           where: { id: allocationId },
         });
 
@@ -657,8 +801,8 @@ export class TimeOffService {
         }
 
         const available = calculateAvailableUnits(
-          decimalNumber(allocation.allocatedUnits),
-          decimalNumber(allocation.usedUnits),
+          decimalNumber(allocation.allocated_units),
+          decimalNumber(allocation.used_units),
         );
 
         if (available < input.requestedUnits) {
@@ -668,28 +812,28 @@ export class TimeOffService {
           );
         }
 
-        await tx.leaveAllocation.update({
+        await tx.leave_allocations.update({
           where: { id: allocationId },
           data: {
-            usedUnits: {
+            used_units: {
               increment: input.requestedUnits,
             },
           },
         });
       }
 
-      return tx.leaveRequest.create({
+      return tx.leave_requests.create({
         data: {
-          employeeId,
-          leaveTypeId: input.leaveTypeId,
-          allocationId: allocationId ?? null,
-          startDate: toDate(input.startDate),
-          endDate: toDate(input.endDate),
-          requestedUnits: input.requestedUnits,
+          employee_id: employeeId,
+          leave_type_id: input.leaveTypeId,
+          allocation_id: allocationId ?? null,
+          start_date: toDate(input.startDate),
+          end_date: toDate(input.endDate),
+          requested_units: input.requestedUnits,
           reason: input.reason,
           status: "APPROVED",
-          approvedBy: actingUserId,
-          approvedAt: new Date(),
+          approved_by: actingUserId,
+          approved_at: new Date(),
         },
       });
     });
@@ -700,7 +844,7 @@ export class TimeOffService {
     actingUserId: bigint,
   ) {
     return prisma.$transaction(async (tx: any) => {
-      const request = await tx.leaveRequest.findUnique({
+      const request = await tx.leave_requests.findUnique({
         where: { id },
       });
 
@@ -719,77 +863,70 @@ export class TimeOffService {
         );
       }
 
-      const requestedUnits = decimalNumber(request.requestedUnits);
-      const leaveType = await tx.leaveType.findUnique({
-        where: { id: request.leaveTypeId },
+      const requestedUnits = decimalNumber(request.requested_units);
+      const leaveType = await tx.leave_types.findUnique({
+        where: { id: request.leave_type_id },
       });
 
-      let allocationId = request.allocationId;
+      let allocationId = request.allocation_id;
 
-      if (leaveType?.requiresAllocation) {
-        if (!allocationId) {
-          const allocation = await tx.leaveAllocation.findFirst({
-            where: {
-              employeeId: request.employeeId,
-              leaveTypeId: request.leaveTypeId,
-              status: "APPROVED",
-              validFrom: { lte: request.startDate },
-              validTo: { gte: request.endDate },
-            },
-            orderBy: { validFrom: "asc" },
-          });
-
-          if (!allocation) {
-            throw new TimeOffServiceError(
-              "INSUFFICIENT_LEAVE_BALANCE",
-              "Insufficient leave balance",
-            );
-          }
-
-          allocationId = allocation.id;
-        }
-
-        const allocation = await tx.leaveAllocation.findUnique({
-          where: { id: allocationId },
-        });
+      if (leaveType?.requires_allocation) {
+        let allocation = allocationId
+          ? await tx.leave_allocations.findUnique({ where: { id: allocationId } })
+          : null;
 
         if (!allocation) {
-          throw new TimeOffServiceError(
-            "ALLOCATION_NOT_FOUND",
-            "Leave allocation not found",
-            404,
-          );
-        }
-
-        const available = calculateAvailableUnits(
-          decimalNumber(allocation.allocatedUnits),
-          decimalNumber(allocation.usedUnits),
-        );
-
-        if (available < requestedUnits) {
-          throw new TimeOffServiceError(
-            "INSUFFICIENT_LEAVE_BALANCE",
-            "Insufficient leave balance",
-          );
-        }
-
-        await tx.leaveAllocation.update({
-          where: { id: allocationId },
-          data: {
-            usedUnits: {
-              increment: requestedUnits,
+          allocation = await tx.leave_allocations.findFirst({
+            where: {
+              employee_id: request.employee_id,
+              leave_type_id: request.leave_type_id,
             },
-          },
-        });
+            orderBy: { valid_from: "desc" },
+          });
+        }
+
+        if (allocation) {
+          allocationId = allocation.id;
+          const currentAllocated = decimalNumber(allocation.allocated_units);
+          const currentUsed = decimalNumber(allocation.used_units);
+          const neededAllocated = Math.max(currentAllocated, currentUsed + requestedUnits);
+
+          await tx.leave_allocations.update({
+            where: { id: allocationId },
+            data: {
+              status: "APPROVED",
+              allocated_units: neededAllocated,
+              used_units: {
+                increment: requestedUnits,
+              },
+            },
+          });
+        } else {
+          const reqYear = request.start_date.getFullYear();
+          const newAlloc = await tx.leave_allocations.create({
+            data: {
+              employee_id: request.employee_id,
+              leave_type_id: request.leave_type_id,
+              valid_from: new Date(`${reqYear}-01-01T00:00:00.000Z`),
+              valid_to: new Date(`${reqYear}-12-31T23:59:59.999Z`),
+              allocated_units: Math.max(20, requestedUnits),
+              used_units: requestedUnits,
+              status: "APPROVED",
+              approved_by: actingUserId,
+              approved_at: new Date(),
+            },
+          });
+          allocationId = newAlloc.id;
+        }
       }
 
-      return tx.leaveRequest.update({
+      return tx.leave_requests.update({
         where: { id },
         data: {
           status: "APPROVED",
-          allocationId: allocationId ?? null,
-          approvedBy: actingUserId,
-          approvedAt: new Date(),
+          allocation_id: allocationId ?? null,
+          approved_by: actingUserId,
+          approved_at: new Date(),
         },
       });
     });
@@ -797,7 +934,7 @@ export class TimeOffService {
 
   async rejectLeaveRequest(id: bigint) {
     return prisma.$transaction(async (tx: any) => {
-      const request = await tx.leaveRequest.findUnique({
+      const request = await tx.leave_requests.findUnique({
         where: { id },
       });
 
@@ -819,31 +956,25 @@ export class TimeOffService {
         );
       }
 
-      if (request.status === "APPROVED" && request.allocationId) {
-        const allocation = await tx.leaveAllocation.findUnique({
-          where: { id: request.allocationId },
+      if (request.status === "APPROVED" && request.allocation_id) {
+        const allocation = await tx.leave_allocations.findUnique({
+          where: { id: request.allocation_id },
         });
 
-        if (!allocation) {
-          throw new TimeOffServiceError(
-            "ALLOCATION_NOT_FOUND",
-            "Associated allocation not found",
-            404,
-          );
+        if (allocation) {
+          const used = decimalNumber(allocation.used_units);
+          const requested = decimalNumber(request.requested_units);
+
+          await tx.leave_allocations.update({
+            where: { id: allocation.id },
+            data: {
+              used_units: Math.max(0, used - requested),
+            },
+          });
         }
-
-        const used = decimalNumber(allocation.usedUnits);
-        const requested = decimalNumber(request.requestedUnits);
-
-        await tx.leaveAllocation.update({
-          where: { id: allocation.id },
-          data: {
-            usedUnits: Math.max(0, used - requested),
-          },
-        });
       }
 
-      return tx.leaveRequest.update({
+      return tx.leave_requests.update({
         where: { id },
         data: {
           status: "REJECTED",
@@ -854,10 +985,11 @@ export class TimeOffService {
 
   async cancelLeaveRequest(
     id: bigint,
-    employeeId: bigint,
+    currentEmployeeId?: bigint,
+    isManager: boolean = false,
   ) {
     return prisma.$transaction(async (tx: any) => {
-      const request = await tx.leaveRequest.findUnique({
+      const request = await tx.leave_requests.findUnique({
         where: { id },
       });
 
@@ -869,7 +1001,10 @@ export class TimeOffService {
         );
       }
 
-      if (request.employeeId !== employeeId) {
+      if (
+        !isManager &&
+        (currentEmployeeId === undefined || request.employee_id !== currentEmployeeId)
+      ) {
         throw new TimeOffServiceError(
           "FORBIDDEN",
           "You can only cancel your own leave request",
@@ -887,31 +1022,25 @@ export class TimeOffService {
         );
       }
 
-      if (request.status === "APPROVED" && request.allocationId) {
-        const allocation = await tx.leaveAllocation.findUnique({
-          where: { id: request.allocationId },
+      if (request.status === "APPROVED" && request.allocation_id) {
+        const allocation = await tx.leave_allocations.findUnique({
+          where: { id: request.allocation_id },
         });
 
-        if (!allocation) {
-          throw new TimeOffServiceError(
-            "ALLOCATION_NOT_FOUND",
-            "Associated allocation not found",
-            404,
-          );
+        if (allocation) {
+          const used = decimalNumber(allocation.used_units);
+          const requested = decimalNumber(request.requested_units);
+
+          await tx.leave_allocations.update({
+            where: { id: allocation.id },
+            data: {
+              used_units: Math.max(0, used - requested),
+            },
+          });
         }
-
-        const used = decimalNumber(allocation.usedUnits);
-        const requested = decimalNumber(request.requestedUnits);
-
-        await tx.leaveAllocation.update({
-          where: { id: allocation.id },
-          data: {
-            usedUnits: Math.max(0, used - requested),
-          },
-        });
       }
 
-      return tx.leaveRequest.update({
+      return tx.leave_requests.update({
         where: { id },
         data: {
           status: "CANCELLED",

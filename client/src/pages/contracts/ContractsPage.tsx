@@ -50,6 +50,42 @@ export const ContractsPage: React.FC = () => {
   const [deletingContract, setDeletingContract] = useState<Contract | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Fixed Global Metrics for stats bar (does NOT change on table searching/filtering)
+  const [globalStats, setGlobalStats] = useState({
+    total: 0,
+    active: 0,
+    draft: 0,
+    expiredOrTerminated: 0,
+  });
+
+  const fetchGlobalStats = useCallback(async () => {
+    try {
+      const res = await contractService.listContracts({ limit: 100 });
+      if (res && res.items) {
+        const allItems = res.items;
+        const total = res.meta?.total || allItems.length;
+        const active = allItems.filter((c) => c.status === 'ACTIVE').length;
+        const draft = allItems.filter((c) => c.status === 'DRAFT').length;
+        const expiredOrTerminated = allItems.filter(
+          (c) => c.status === 'EXPIRED' || c.status === 'TERMINATED'
+        ).length;
+
+        setGlobalStats({
+          total,
+          active,
+          draft,
+          expiredOrTerminated,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load global contract stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGlobalStats();
+  }, [fetchGlobalStats]);
+
   const fetchContracts = useCallback(async (page = 1) => {
     setIsLoading(true);
     try {
@@ -90,17 +126,13 @@ export const ContractsPage: React.FC = () => {
       await contractService.deleteContract(deletingContract.id);
       setDeletingContract(null);
       fetchContracts(meta.page);
+      fetchGlobalStats();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to delete contract');
     } finally {
       setIsDeleting(false);
     }
   };
-
-  // Metrics for stats bar
-  const activeCount = contracts.filter((c) => c.status === 'ACTIVE').length;
-  const draftCount = contracts.filter((c) => c.status === 'DRAFT').length;
-  const expiredCount = contracts.filter((c) => c.status === 'EXPIRED' || c.status === 'TERMINATED').length;
 
   const getStatusBadge = (status: ContractStatus) => {
     switch (status) {
@@ -252,7 +284,7 @@ export const ContractsPage: React.FC = () => {
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xl font-black text-slate-900">{meta.total}</div>
+            <div className="text-xl font-black text-slate-900">{globalStats.total}</div>
             <div className="text-xs text-slate-500 font-medium">Total Contracts On Record</div>
           </div>
         </div>
@@ -262,7 +294,7 @@ export const ContractsPage: React.FC = () => {
             <ShieldAlert className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xl font-black text-indigo-900">{activeCount} In Force</div>
+            <div className="text-xl font-black text-indigo-900">{globalStats.active} In Force</div>
             <div className="text-xs text-slate-500 font-medium">Protected against date overlap</div>
           </div>
         </div>
@@ -272,7 +304,7 @@ export const ContractsPage: React.FC = () => {
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xl font-black text-slate-900">{draftCount} Drafts / {expiredCount} Terminated</div>
+            <div className="text-xl font-black text-slate-900">{globalStats.draft} Drafts / {globalStats.expiredOrTerminated} Terminated</div>
             <div className="text-xs text-slate-500 font-medium">Pending or Archived contracts</div>
           </div>
         </div>
@@ -348,7 +380,10 @@ export const ContractsPage: React.FC = () => {
       <ContractModal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
-        onSuccess={() => fetchContracts(meta.page)}
+        onSuccess={() => {
+          fetchContracts(meta.page);
+          fetchGlobalStats();
+        }}
         contractToEdit={contractToEdit}
       />
 

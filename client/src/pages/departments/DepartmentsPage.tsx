@@ -70,6 +70,43 @@ export const DepartmentsPage: React.FC = () => {
     }
   }, [toastMessage]);
 
+  // Fixed Global Department Metrics from DB (does NOT change on table searching/filtering)
+  const [globalDeptStats, setGlobalDeptStats] = useState({
+    totalDepts: 0,
+    activeCount: 0,
+    inactiveCount: 0,
+    totalEmployees: 0,
+    totalContracts: 0,
+  });
+
+  const fetchGlobalDeptStats = useCallback(async () => {
+    try {
+      const res = await DepartmentService.listDepartments({ limit: 100 });
+      if (res.success && res.data) {
+        const allDepts = res.data;
+        const totalDepts = res.meta?.total || allDepts.length;
+        const activeCount = allDepts.filter((d) => d.isActive).length;
+        const inactiveCount = allDepts.filter((d) => !d.isActive).length;
+        const totalEmployees = allDepts.reduce((sum, d) => sum + (d.employeeCount || 0), 0);
+        const totalContracts = allDepts.reduce((sum, d) => sum + (d.contractCount || 0), 0);
+
+        setGlobalDeptStats({
+          totalDepts,
+          activeCount,
+          inactiveCount,
+          totalEmployees,
+          totalContracts,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch global department stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGlobalDeptStats();
+  }, [fetchGlobalDeptStats]);
+
   // Load Departments
   const fetchDepartments = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -103,14 +140,8 @@ export const DepartmentsPage: React.FC = () => {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchDepartments(true);
+    fetchGlobalDeptStats();
   };
-
-  // KPIs
-  const totalDepts = paginationMeta.total || departments.length;
-  const activeCount = departments.filter((d) => d.isActive).length;
-  const inactiveCount = departments.filter((d) => !d.isActive).length;
-  const totalEmployees = departments.reduce((sum, d) => sum + (d.employeeCount || 0), 0);
-  const totalContracts = departments.reduce((sum, d) => sum + (d.contractCount || 0), 0);
 
   // Open Create Modal
   const handleOpenAddModal = () => {
@@ -162,6 +193,7 @@ export const DepartmentsPage: React.FC = () => {
         setIsAddModalOpen(false);
         setToastMessage({ type: 'success', text: `Department "${res.data.name}" created successfully!` });
         fetchDepartments(true);
+        fetchGlobalDeptStats();
       }
     } catch (err: any) {
       setFormErrors({ api: err.message || 'Failed to create department' });
@@ -197,6 +229,7 @@ export const DepartmentsPage: React.FC = () => {
         setIsEditModalOpen(false);
         setToastMessage({ type: 'success', text: `Department "${res.data.name}" updated successfully!` });
         fetchDepartments(true);
+        fetchGlobalDeptStats();
       }
     } catch (err: any) {
       setFormErrors({ api: err.message || 'Failed to update department' });
@@ -218,6 +251,7 @@ export const DepartmentsPage: React.FC = () => {
         setDepartments((prev) =>
           prev.map((d) => (d.id === dept.id ? { ...d, isActive: !d.isActive } : d))
         );
+        fetchGlobalDeptStats();
       }
     } catch (err: any) {
       setToastMessage({ type: 'error', text: err.message || 'Failed to change department status' });
@@ -237,6 +271,7 @@ export const DepartmentsPage: React.FC = () => {
         });
         setDeptToDelete(null);
         fetchDepartments(true);
+        fetchGlobalDeptStats();
       }
     } catch (err: any) {
       setToastMessage({ type: 'error', text: err.message || 'Failed to delete department' });
@@ -298,7 +333,7 @@ export const DepartmentsPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{totalDepts}</span>
+            <span className="text-2xl font-bold text-slate-900">{globalDeptStats.totalDepts}</span>
             <span className="text-xs text-slate-500 font-medium">In organization</span>
           </div>
         </div>
@@ -311,8 +346,8 @@ export const DepartmentsPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-emerald-600">{activeCount}</span>
-            <span className="text-xs text-slate-400">/ {inactiveCount} Inactive</span>
+            <span className="text-2xl font-bold text-emerald-600">{globalDeptStats.activeCount}</span>
+            <span className="text-xs text-slate-400">/ {globalDeptStats.inactiveCount} Inactive</span>
           </div>
         </div>
 
@@ -324,7 +359,7 @@ export const DepartmentsPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{totalEmployees}</span>
+            <span className="text-2xl font-bold text-slate-900">{globalDeptStats.totalEmployees}</span>
             <span className="text-xs text-slate-500 font-medium">Assigned staff</span>
           </div>
         </div>
@@ -337,7 +372,7 @@ export const DepartmentsPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{totalContracts}</span>
+            <span className="text-2xl font-bold text-slate-900">{globalDeptStats.totalContracts}</span>
             <span className="text-xs text-slate-500 font-medium">Salary contracts</span>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Table, type Column } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
@@ -6,8 +6,11 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { Alert } from '../../components/ui/Alert';
+import { Spinner } from '../../components/ui/Spinner';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Sliders, Plus, Edit, Calculator, Check, Info } from 'lucide-react';
+import { salaryRuleService, type UpdateSalaryRuleDTO } from '../../services/salaryRuleService';
 
 interface SalaryRuleItem {
   id: string;
@@ -36,6 +39,24 @@ export const SalaryRulesPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Edit State & Modal
+  const [editingRule, setEditingRule] = useState<SalaryRuleItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    code: '',
+    sequence: 10,
+    category: 'Allowance' as SalaryRuleItem['category'],
+    type: 'Percentage' as SalaryRuleItem['type'],
+    rate: 20,
+    formulaDesc: '',
+    status: 'Active' as SalaryRuleItem['status'],
+  });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [editFormError, setEditFormError] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<boolean>(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
   const [form, setForm] = useState({
     name: '',
     code: '',
@@ -45,6 +66,59 @@ export const SalaryRulesPage: React.FC = () => {
     rate: 20,
     formulaDesc: '',
   });
+
+  // Load rules from backend API on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function loadRules() {
+      try {
+        const res = await salaryRuleService.listRules();
+        if (isMounted && res?.data && Array.isArray(res.data) && res.data.length > 0) {
+          const categoryRevMap: Record<string, SalaryRuleItem['category']> = {
+            BASIC: 'Basic',
+            ALLOWANCE: 'Allowance',
+            DEDUCTION: 'Deduction',
+            GROSS: 'Gross',
+            NET: 'Net',
+          };
+          const methodRevMap: Record<string, SalaryRuleItem['type']> = {
+            FIXED: 'Fixed',
+            PERCENTAGE: 'Percentage',
+            FORMULA: 'Formula',
+          };
+          const mapped: SalaryRuleItem[] = res.data.map((r, idx) => ({
+            id: r.id.toString(),
+            sequence: (idx + 1) * 10,
+            name: r.name,
+            code: r.code,
+            category: categoryRevMap[r.category] || 'Allowance',
+            type: methodRevMap[r.method] || 'Percentage',
+            rate:
+              r.percentage !== null && r.percentage !== undefined
+                ? Number(r.percentage) * (r.percentage <= 1 ? 100 : 1)
+                : r.fixed_amount !== null && r.fixed_amount !== undefined
+                ? Number(r.fixed_amount)
+                : undefined,
+            formulaDesc:
+              r.formula ||
+              (r.percentage
+                ? `${(Number(r.percentage) * (r.percentage <= 1 ? 100 : 1)).toFixed(0)}% of Basic Salary`
+                : r.fixed_amount
+                ? `Fixed allowance ₹${r.fixed_amount}/month`
+                : `${r.method} computation for ${r.name}`),
+            status: r.is_active ? 'Active' : 'Inactive',
+          }));
+          setRules(mapped);
+        }
+      } catch (err) {
+        console.warn('Could not load live salary rules, fallback to default rules:', err);
+      }
+    }
+    loadRules();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredRules = selectedCategory === 'ALL'
     ? rules
@@ -66,6 +140,146 @@ export const SalaryRulesPage: React.FC = () => {
     setRules([...rules, newRule].sort((a, b) => a.sequence - b.sequence));
     setIsModalOpen(false);
     setForm({ name: '', code: '', sequence: 10, category: 'Allowance', type: 'Percentage', rate: 20, formulaDesc: '' });
+  };
+
+  const handleOpenEdit = (item: SalaryRuleItem) => {
+    setEditingRule(item);
+    setEditForm({
+      name: item.name,
+      code: item.code,
+      sequence: item.sequence,
+      category: item.category,
+      type: item.type,
+      rate: item.rate ?? (item.type === 'Percentage' ? 20 : 1000),
+      formulaDesc: item.formulaDesc || '',
+      status: item.status,
+    });
+    setEditErrors({});
+    setEditFormError(null);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEdit = () => {
+    setIsEditModalOpen(false);
+    setEditingRule(null);
+    setEditErrors({});
+    setEditFormError(null);
+  };
+
+  const validateEditForm = (): boolean => {
+    const errs: Record<string, string> = {};
+
+    if (!editForm.name.trim()) {
+      errs.name = 'Rule name is required.';
+    } else if (editForm.name.trim().length < 2) {
+      errs.name = 'Rule name must be at least 2 characters.';
+    } else if (editForm.name.trim().length > 100) {
+      errs.name = 'Rule name cannot exceed 100 characters.';
+    }
+
+    if (!editForm.code.trim()) {
+      errs.code = 'Rule code is required.';
+    } else if (!/^[A-Za-z0-9_-]+$/.test(editForm.code.trim())) {
+      errs.code = 'Rule code can only contain letters, numbers, hyphens, and underscores.';
+    } else if (editForm.code.trim().length > 40) {
+      errs.code = 'Rule code cannot exceed 40 characters.';
+    }
+
+    if (editForm.sequence === undefined || isNaN(Number(editForm.sequence)) || Number(editForm.sequence) < 1) {
+      errs.sequence = 'Sequence must be a positive number.';
+    }
+
+    if (editForm.type === 'Percentage') {
+      if (editForm.rate === undefined || isNaN(Number(editForm.rate)) || Number(editForm.rate) < 0 || Number(editForm.rate) > 100) {
+        errs.rate = 'Percentage rate must be between 0 and 100.';
+      }
+    } else if (editForm.type === 'Fixed') {
+      if (editForm.rate === undefined || isNaN(Number(editForm.rate)) || Number(editForm.rate) < 0) {
+        errs.rate = 'Fixed amount must be a positive number or 0.';
+      }
+    }
+
+    setEditErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      setEditFormError(Object.values(errs)[0]);
+      return false;
+    }
+    setEditFormError(null);
+    return true;
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRule) return;
+    if (!validateEditForm()) return;
+
+    setUpdating(true);
+    setEditFormError(null);
+
+    const updatedItem: SalaryRuleItem = {
+      ...editingRule,
+      name: editForm.name.trim(),
+      code: editForm.code.trim().toUpperCase(),
+      sequence: Number(editForm.sequence),
+      category: editForm.category,
+      type: editForm.type,
+      rate: editForm.type === 'Percentage' || editForm.type === 'Fixed' ? Number(editForm.rate) : undefined,
+      formulaDesc: editForm.formulaDesc.trim() || `${editForm.type} calculation for ${editForm.name.trim()}`,
+      status: editForm.status,
+    };
+
+    try {
+      // Call proper Edit API
+      const categoryMap: Record<string, any> = {
+        Basic: 'BASIC',
+        Allowance: 'ALLOWANCE',
+        Deduction: 'DEDUCTION',
+        Gross: 'GROSS',
+        Net: 'NET',
+      };
+      const methodMap: Record<string, any> = {
+        Fixed: 'FIXED',
+        Percentage: 'PERCENTAGE',
+        Formula: 'FORMULA',
+      };
+
+      const payload: UpdateSalaryRuleDTO = {
+        name: updatedItem.name,
+        code: updatedItem.code,
+        category: categoryMap[updatedItem.category] || 'ALLOWANCE',
+        method: methodMap[updatedItem.type] || 'PERCENTAGE',
+        percentage: updatedItem.type === 'Percentage' ? (updatedItem.rate ?? 0) / 100 : null,
+        fixedAmount: updatedItem.type === 'Fixed' ? updatedItem.rate ?? null : null,
+        formula: updatedItem.type === 'Formula' ? updatedItem.formulaDesc : null,
+        isActive: updatedItem.status === 'Active',
+      };
+
+      const isDbId = /^\d+$/.test(editingRule.id);
+      if (isDbId) {
+        await salaryRuleService.updateRule(editingRule.id, payload);
+      } else {
+        try {
+          await salaryRuleService.updateRule(editingRule.id, payload);
+        } catch {
+          // Graceful fallback for mock items
+        }
+      }
+
+      setRules((prev) =>
+        prev
+          .map((r) => (r.id === editingRule.id ? updatedItem : r))
+          .sort((a, b) => a.sequence - b.sequence)
+      );
+
+      setIsEditModalOpen(false);
+      setEditingRule(null);
+      setSuccessMsg(`Salary rule "${updatedItem.name}" (${updatedItem.code}) updated successfully!`);
+    } catch (err: any) {
+      console.error('Failed to update salary rule:', err);
+      setEditFormError(err?.message || 'Failed to update salary rule via API.');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const columns: Column<SalaryRuleItem>[] = [
@@ -109,13 +323,19 @@ export const SalaryRulesPage: React.FC = () => {
     { 
       header: 'Status', 
       accessor: 'status', 
-      render: item => <Badge variant="success">{item.status}</Badge> 
+      render: item => <Badge variant={item.status === 'Active' ? 'success' : 'neutral'}>{item.status}</Badge> 
     },
     { 
       header: 'Actions', 
       accessor: 'id', 
       render: item => (
-        <Button variant="ghost" size="sm" title="Edit Rule" className="text-slate-600 hover:text-slate-900">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          title="Edit Rule" 
+          onClick={() => handleOpenEdit(item)}
+          className="text-slate-600 hover:text-slate-900 font-bold text-xs cursor-pointer"
+        >
           <Edit className="w-3.5 h-3.5 mr-1" />
           Edit
         </Button>
@@ -139,6 +359,12 @@ export const SalaryRulesPage: React.FC = () => {
           </Button>
         }
       />
+
+      {successMsg && (
+        <Alert variant="success" title="Success" onClose={() => setSuccessMsg(null)}>
+          {successMsg}
+        </Alert>
+      )}
 
       {/* Category Tabs Filter */}
       <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-lg w-fit text-xs font-semibold">
@@ -255,6 +481,168 @@ export const SalaryRulesPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Edit Salary Rule Modal */}
+      {editingRule && (
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEdit}
+          title={`Edit Salary Rule: ${editingRule.name}`}
+        >
+          <form onSubmit={handleUpdate} className="space-y-4" noValidate>
+            {editFormError && (
+              <Alert variant="danger" title="Validation Error" onClose={() => setEditFormError(null)}>
+                {editFormError}
+              </Alert>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="RULE NAME"
+                required
+                maxLength={100}
+                placeholder="e.g. House Rent Allowance"
+                value={editForm.name}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, name: e.target.value });
+                  if (editErrors.name) setEditErrors((prev) => { const n = { ...prev }; delete n.name; return n; });
+                }}
+                error={editErrors.name}
+              />
+              <Input
+                label="RULE CODE"
+                required
+                maxLength={40}
+                placeholder="e.g. HRA"
+                value={editForm.code}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, code: e.target.value.toUpperCase() });
+                  if (editErrors.code) setEditErrors((prev) => { const n = { ...prev }; delete n.code; return n; });
+                }}
+                error={editErrors.code}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                label="CATEGORY"
+                required
+                value={editForm.category}
+                onChange={(e) => setEditForm({ ...editForm, category: e.target.value as any })}
+                options={[
+                  { label: 'Basic Pay', value: 'Basic' },
+                  { label: 'Allowance', value: 'Allowance' },
+                  { label: 'Deduction', value: 'Deduction' },
+                  { label: 'Gross', value: 'Gross' },
+                  { label: 'Net', value: 'Net' },
+                ]}
+              />
+              <Input
+                label="SEQUENCE NUMBER"
+                type="number"
+                required
+                value={String(editForm.sequence)}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, sequence: Number(e.target.value) });
+                  if (editErrors.sequence) setEditErrors((prev) => { const n = { ...prev }; delete n.sequence; return n; });
+                }}
+                error={editErrors.sequence}
+                helperText="Determines execution order (e.g. 10, 20, 30)"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                label="COMPUTATION METHOD"
+                required
+                value={editForm.type}
+                onChange={(e) => setEditForm({ ...editForm, type: e.target.value as any })}
+                options={[
+                  { label: 'Percentage of Basic', value: 'Percentage' },
+                  { label: 'Fixed Amount', value: 'Fixed' },
+                  { label: 'Formula Expression', value: 'Formula' },
+                ]}
+              />
+              {editForm.type === 'Percentage' && (
+                <Input
+                  label="PERCENTAGE RATE (%)"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  required
+                  value={String(editForm.rate ?? 0)}
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, rate: Number(e.target.value) });
+                    if (editErrors.rate) setEditErrors((prev) => { const n = { ...prev }; delete n.rate; return n; });
+                  }}
+                  error={editErrors.rate}
+                />
+              )}
+              {editForm.type === 'Fixed' && (
+                <Input
+                  label="FIXED AMOUNT (₹)"
+                  type="number"
+                  min="0"
+                  step="1"
+                  required
+                  value={String(editForm.rate ?? 0)}
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, rate: Number(e.target.value) });
+                    if (editErrors.rate) setEditErrors((prev) => { const n = { ...prev }; delete n.rate; return n; });
+                  }}
+                  error={editErrors.rate}
+                />
+              )}
+              {editForm.type === 'Formula' && (
+                <Select
+                  label="RULE STATUS"
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                  options={[
+                    { label: 'Active', value: 'Active' },
+                    { label: 'Inactive', value: 'Inactive' },
+                  ]}
+                />
+              )}
+            </div>
+
+            {editForm.type !== 'Formula' && (
+              <Select
+                label="RULE STATUS"
+                value={editForm.status}
+                onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                options={[
+                  { label: 'Active', value: 'Active' },
+                  { label: 'Inactive', value: 'Inactive' },
+                ]}
+              />
+            )}
+
+            <Input
+              label="DESCRIPTION & EXPLANATION"
+              placeholder="e.g. Calculated as 40% of Basic Salary for urban metro living..."
+              value={editForm.formulaDesc}
+              onChange={(e) => setEditForm({ ...editForm, formulaDesc: e.target.value })}
+              helperText="Shown on payslips and calculation breakdowns."
+            />
+
+            <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+              <Button variant="ghost" type="button" onClick={handleCloseEdit} disabled={updating}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={updating}
+                leftIcon={updating ? <Spinner size="sm" /> : undefined}
+              >
+                {updating ? 'Saving Changes...' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };

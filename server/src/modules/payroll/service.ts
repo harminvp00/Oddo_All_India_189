@@ -190,37 +190,51 @@ function formula(
 export class PayrollService {
   constructor(private db: any) {}
 
+  private get rulesDelegate() {
+    return this.db.salary_rules ?? this.db.salaryRule;
+  }
+
+  private get structuresDelegate() {
+    return this.db.salary_structures ?? this.db.salaryStructure;
+  }
+
+  private get structureRulesDelegate() {
+    return this.db.salary_structure_rules ?? this.db.salaryStructureRule;
+  }
+
   async listSalaryRules(query: { search?: string; category?: string; isActive?: boolean }) {
-    const rows = await this.db.salaryRule.findMany({
+    const rows = await this.rulesDelegate.findMany({
       where: {
         ...(query.search ? { OR: [
           { name: { contains: query.search, mode: "insensitive" } },
           { code: { contains: query.search, mode: "insensitive" } },
         ] } : {}),
         ...(query.category ? { category: query.category } : {}),
-        ...(query.isActive === undefined ? {} : { isActive: query.isActive }),
+        ...(query.isActive === undefined ? {} : { is_active: query.isActive }),
       },
-      orderBy: { name: "asc" },
+      orderBy: { id: "asc" },
     });
     return serialize(rows);
   }
 
   async getSalaryRule(id: bigint) {
-    const row = await this.db.salaryRule.findUnique({ where: { id } });
+    const row = await this.rulesDelegate.findUnique({ where: { id } });
     if (!row) throw new PayrollError("NOT_FOUND", "Salary rule not found", 404);
     return serialize(row);
   }
 
   async createSalaryRule(input: SalaryRuleCreateInput) {
     try {
-      return serialize(await this.db.salaryRule.create({
+      return serialize(await this.rulesDelegate.create({
         data: {
-          name: input.name, code: input.code.toUpperCase(),
-          category: input.category, method: input.method,
-          fixedAmount: input.method === "FIXED" ? input.fixedAmount : null,
+          name: input.name,
+          code: input.code.toUpperCase(),
+          category: input.category,
+          method: input.method,
+          fixed_amount: input.method === "FIXED" ? input.fixedAmount : null,
           percentage: input.method === "PERCENTAGE" ? input.percentage : null,
           formula: input.method === "FORMULA" ? input.formula : null,
-          isActive: input.isActive,
+          is_active: input.isActive ?? true,
         },
       }));
     } catch (e: any) {
@@ -231,16 +245,27 @@ export class PayrollService {
 
   async updateSalaryRule(id: bigint, input: SalaryRuleUpdateInput) {
     await this.getSalaryRule(id);
-    const data: any = { ...input };
-    if (input.code) data.code = input.code.toUpperCase();
+    const data: any = {};
+    if (input.name !== undefined) data.name = input.name;
+    if (input.code !== undefined) data.code = input.code.toUpperCase();
+    if (input.category !== undefined) data.category = input.category;
+    if (input.method !== undefined) data.method = input.method;
+    if ((input as any).fixedAmount !== undefined || (input as any).fixed_amount !== undefined) {
+      data.fixed_amount = (input as any).fixedAmount ?? (input as any).fixed_amount;
+    }
+    if (input.percentage !== undefined) data.percentage = input.percentage;
+    if (input.formula !== undefined) data.formula = input.formula;
+    if ((input as any).isActive !== undefined || (input as any).is_active !== undefined) {
+      data.is_active = (input as any).isActive ?? (input as any).is_active;
+    }
     if (input.method === "FIXED") { data.percentage = null; data.formula = null; }
-    if (input.method === "PERCENTAGE") { data.fixedAmount = null; data.formula = null; }
-    if (input.method === "FORMULA") { data.fixedAmount = null; data.percentage = null; }
-    return serialize(await this.db.salaryRule.update({ where: { id }, data }));
+    if (input.method === "PERCENTAGE") { data.fixed_amount = null; data.formula = null; }
+    if (input.method === "FORMULA") { data.fixed_amount = null; data.percentage = null; }
+    return serialize(await this.rulesDelegate.update({ where: { id }, data }));
   }
 
   async deleteSalaryRule(id: bigint) {
-    try { return serialize(await this.db.salaryRule.delete({ where: { id } })); }
+    try { return serialize(await this.rulesDelegate.delete({ where: { id } })); }
     catch (e: any) {
       if (e?.code === "P2003") throw new PayrollError("SALARY_RULE_IN_USE", "Salary rule is in use", 409);
       throw e;

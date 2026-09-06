@@ -33,6 +33,8 @@ import {
   Activity,
   Award,
   Camera,
+  Pencil,
+  Archive,
 } from 'lucide-react';
 
 export const EmployeeDetailPage: React.FC = () => {
@@ -82,6 +84,20 @@ export const EmployeeDetailPage: React.FC = () => {
       setStoredAvatar(employee.employeeCode, newPhoto);
     }
     setIsPhotoModalOpen(false);
+  };
+
+  const handleArchive = async () => {
+    if (!employee) return;
+    if (!window.confirm(`Are you sure you want to archive/terminate employee "${employee.name}"?`)) {
+      return;
+    }
+    try {
+      await employeeService.deleteEmployee(employee.id);
+      navigate('/employees');
+    } catch (err: any) {
+      console.error('Failed to archive employee:', err);
+      alert(err?.response?.data?.message || err?.message || 'Failed to archive employee.');
+    }
   };
 
   const TABS = [
@@ -198,15 +214,38 @@ export const EmployeeDetailPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex gap-2 w-full sm:w-auto mt-3 sm:mt-0 justify-center sm:justify-end pb-1">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-3 sm:mt-0 justify-center sm:justify-end pb-1">
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<Pencil className="w-4 h-4" />}
+                onClick={() => navigate(`/employees/${employee.id}/edit`)}
+                className="bg-[#714B67] hover:bg-[#5b3c53] text-white font-bold text-xs"
+                title="Edit employee details"
+              >
+                Edit Employee
+              </Button>
+              {employee.employmentStatus === 'ACTIVE' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<Archive className="w-4 h-4 text-rose-500" />}
+                  onClick={handleArchive}
+                  className="bg-white border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-xs"
+                  title="Archive employee profile"
+                >
+                  Archive
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 leftIcon={<Camera className="w-4 h-4 text-slate-500" />}
                 onClick={() => setIsPhotoModalOpen(true)}
                 className="bg-white font-bold text-xs"
+                title="Update profile picture"
               >
-                Update Photo
+                Photo
               </Button>
               <Button
                 variant="outline"
@@ -214,8 +253,9 @@ export const EmployeeDetailPage: React.FC = () => {
                 leftIcon={<ArrowLeft className="w-4 h-4 text-slate-500" />}
                 onClick={() => navigate('/employees')}
                 className="bg-white font-bold text-xs"
+                title="Back to list"
               >
-                Back to List
+                Back
               </Button>
             </div>
           </div>

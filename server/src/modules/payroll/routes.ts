@@ -5,9 +5,9 @@ import { authenticate, requireRole } from "../../middleware/auth";
 const router = Router();
 router.use(authenticate);
 
-const read = requireRole(["HR_PAYROLL_USER", "HR_PAYROLL_MANAGER", "ADMIN"]);
-const write = requireRole(["HR_PAYROLL_MANAGER", "ADMIN"]);
-const run = requireRole(["HR_PAYROLL_USER", "HR_PAYROLL_MANAGER", "ADMIN"]);
+const read = requireRole(["HR_MANAGER", "HR_PAYROLL_USER", "HR_PAYROLL_MANAGER", "ADMIN"]);
+const write = requireRole(["HR_MANAGER", "HR_PAYROLL_MANAGER", "ADMIN"]);
+const run = requireRole(["HR_MANAGER", "HR_PAYROLL_USER", "HR_PAYROLL_MANAGER", "ADMIN"]);
 
 router.get("/salary-rules", read, c.listSalaryRules);
 router.get("/salary-rules/:id", read, c.getSalaryRule);
@@ -26,5 +26,10 @@ router.post("/payruns", run, c.createPayrun);
 router.post("/payruns/:id/compute", run, c.computePayrun);
 router.post("/payruns/:id/validate", run, c.validatePayrun);
 router.post("/payruns/:id/pay", run, c.payPayrun);
+
+router.post("/payslips/send-email", run, c.sendPayslipEmailHandler);
+router.post("/payslips/send-email-bulk", run, c.sendBulkPayslipsEmailHandler);
+router.post("/payslips/:id/email", run, c.sendPayslipEmailHandler);
+
 
 export default router;

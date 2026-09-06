@@ -551,13 +551,31 @@ export interface LeaveAllocation {
   id: string;
   employeeId: string;
   employee?: {
-    id: string;
+    id?: string;
     name: string;
+    firstName?: string;
+    lastName?: string;
     employeeCode: string;
+  } | null;
+  employees?: {
+    id?: string;
+    name?: string;
+    firstName?: string;
+    lastName?: string;
+    first_name?: string;
+    last_name?: string;
+    employeeCode?: string;
+    employee_code?: string;
   } | null;
   leaveTypeId: string;
   leaveType?: {
-    id: string;
+    id?: string;
+    name: string;
+    code: string;
+    unit: LeaveUnit;
+  } | null;
+  leave_types?: {
+    id?: string;
     name: string;
     code: string;
     unit: LeaveUnit;
@@ -584,13 +602,31 @@ export interface LeaveRequest {
   id: string;
   employeeId: string;
   employee?: {
-    id: string;
+    id?: string;
     name: string;
+    firstName?: string;
+    lastName?: string;
     employeeCode: string;
+  } | null;
+  employees?: {
+    id?: string;
+    name?: string;
+    firstName?: string;
+    lastName?: string;
+    first_name?: string;
+    last_name?: string;
+    employeeCode?: string;
+    employee_code?: string;
   } | null;
   leaveTypeId: string;
   leaveType?: {
-    id: string;
+    id?: string;
+    name: string;
+    code: string;
+    unit: LeaveUnit;
+  } | null;
+  leave_types?: {
+    id?: string;
     name: string;
     code: string;
     unit: LeaveUnit;

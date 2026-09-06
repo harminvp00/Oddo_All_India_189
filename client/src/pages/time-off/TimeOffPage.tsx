@@ -86,22 +86,20 @@ export const TimeOffPage: React.FC = () => {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      if (activeTab === 'requests') {
-        const res = await timeOffService.listLeaveRequests({ limit: 100 });
-        setRequests(res.data);
-      } else if (activeTab === 'allocations') {
-        const res = await timeOffService.listAllocations({ limit: 100 });
-        setAllocations(res.data);
-      } else if (activeTab === 'types') {
-        const types = await timeOffService.listLeaveTypes();
-        setLeaveTypes(types);
-      }
+      const [reqRes, allocRes, typesRes] = await Promise.all([
+        timeOffService.listLeaveRequests({ limit: 100 }),
+        timeOffService.listAllocations({ limit: 100 }),
+        timeOffService.listLeaveTypes(),
+      ]);
+      setRequests(reqRes.data || []);
+      setAllocations(allocRes.data || []);
+      setLeaveTypes(typesRes || []);
     } catch (err) {
       console.error('Failed to fetch time off records:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -158,29 +156,45 @@ export const TimeOffPage: React.FC = () => {
     {
       header: 'Employee',
       accessor: 'employeeId',
-      render: (item) => (
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-xs">
-            {item.employee?.name?.charAt(0) || 'E'}
+      render: (item: any) => {
+        const emp = item.employee || item.employees;
+        const name =
+          emp?.name ||
+          (emp?.firstName || emp?.first_name
+            ? `${emp.firstName || emp.first_name} ${emp.lastName || emp.last_name || ''}`.trim()
+            : item.employeeId
+            ? `Employee #${item.employeeId}`
+            : 'Employee');
+        const code = emp?.employeeCode || emp?.employee_code || '';
+        const initial = name && name !== 'Employee' ? name.charAt(0).toUpperCase() : 'E';
+
+        return (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-xs">
+              {initial}
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 text-sm">{name}</div>
+              {code && <div className="text-xs text-slate-400 font-mono">{code}</div>}
+            </div>
           </div>
-          <div>
-            <div className="font-bold text-slate-900 text-sm">{item.employee?.name || 'My Request'}</div>
-            <div className="text-xs text-slate-400 font-mono">{item.employee?.employeeCode}</div>
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       header: 'Leave Type',
       accessor: 'leaveTypeId',
-      render: (item) => (
-        <div>
-          <span className="font-semibold text-slate-800 text-xs bg-slate-100 px-2 py-0.5 rounded">
-            {item.leaveType?.name || 'General Leave'}
-          </span>
-          <div className="text-[11px] text-slate-400 mt-0.5">{item.leaveType?.code}</div>
-        </div>
-      ),
+      render: (item: any) => {
+        const lt = item.leaveType || item.leave_types;
+        return (
+          <div>
+            <span className="font-semibold text-slate-800 text-xs bg-slate-100 px-2 py-0.5 rounded">
+              {lt?.name || 'General Leave'}
+            </span>
+            {lt?.code && <div className="text-[11px] text-slate-400 mt-0.5">{lt.code}</div>}
+          </div>
+        );
+      },
     },
     {
       header: 'Duration & Dates',
@@ -266,21 +280,36 @@ export const TimeOffPage: React.FC = () => {
     {
       header: 'Employee',
       accessor: 'employeeId',
-      render: (item) => (
-        <div className="flex items-center gap-2">
-          <div className="font-bold text-slate-900 text-sm">{item.employee?.name || 'Employee'}</div>
-          <span className="text-[11px] text-slate-400 font-mono">({item.employee?.employeeCode})</span>
-        </div>
-      ),
+      render: (item: any) => {
+        const emp = item.employee || item.employees;
+        const name =
+          emp?.name ||
+          (emp?.firstName || emp?.first_name
+            ? `${emp.firstName || emp.first_name} ${emp.lastName || emp.last_name || ''}`.trim()
+            : item.employeeId
+            ? `Employee #${item.employeeId}`
+            : 'Employee');
+        const code = emp?.employeeCode || emp?.employee_code || '';
+
+        return (
+          <div className="flex items-center gap-2">
+            <div className="font-bold text-slate-900 text-sm">{name}</div>
+            {code && <span className="text-[11px] text-slate-400 font-mono">({code})</span>}
+          </div>
+        );
+      },
     },
     {
       header: 'Leave Type',
       accessor: 'leaveTypeId',
-      render: (item) => (
-        <span className="font-semibold text-slate-800 text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
-          {item.leaveType?.name || 'Standard'} ({item.leaveType?.code})
-        </span>
-      ),
+      render: (item: any) => {
+        const lt = item.leaveType || item.leave_types;
+        return (
+          <span className="font-semibold text-slate-800 text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
+            {lt?.name || 'Standard'} {lt?.code ? `(${lt.code})` : ''}
+          </span>
+        );
+      },
     },
     {
       header: 'Allocated Quota',
@@ -423,7 +452,7 @@ export const TimeOffPage: React.FC = () => {
       />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
             <Clock className="w-5 h-5" />
@@ -445,11 +474,21 @@ export const TimeOffPage: React.FC = () => {
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold">
+            <UserCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xl font-black text-slate-900">{allocations.length} Allocations</div>
+            <div className="text-xs text-slate-500 font-medium">Granted leave quotas & balances</div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xl font-black text-slate-900">{leaveTypes.length || 4} Policies</div>
+            <div className="text-xl font-black text-slate-900">{leaveTypes.length} Policies</div>
             <div className="text-xs text-slate-500 font-medium">Active paid & unpaid leave types</div>
           </div>
         </div>

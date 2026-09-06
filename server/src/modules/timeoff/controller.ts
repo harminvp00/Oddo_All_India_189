@@ -411,10 +411,14 @@ export async function cancelLeaveRequest(
 ) {
   try {
     const { id } = leaveRequestIdSchema.parse(req.params);
+    const userRole = req.user?.role;
+    const isManager = ["HR_MANAGER", "HR_PAYROLL_USER", "HR_PAYROLL_MANAGER", "ADMIN"].includes(userRole || "");
+    const currentEmployeeId = req.user?.employeeId ? BigInt(req.user.employeeId) : undefined;
 
     const data = await service.cancelLeaveRequest(
       id,
-      employeeId(req),
+      currentEmployeeId,
+      isManager,
     );
 
     return res.status(200).json({

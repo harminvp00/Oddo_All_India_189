@@ -32,6 +32,24 @@ import {
   X
 } from 'lucide-react';
 
+const statusVariantMap: Record<AttendanceStatus, 'success' | 'warning' | 'danger' | 'info' | 'primary' | 'neutral'> = {
+  PRESENT: 'success',
+  LATE: 'warning',
+  HALF_DAY: 'primary',
+  ABSENT: 'danger',
+  CORRECTED: 'info',
+};
+
+export const getEffectiveStatus = (record: AttendanceRecord): AttendanceStatus => {
+  if (record.status === 'CORRECTED') return 'CORRECTED';
+  if (record.checkIn && !record.checkOut) return record.status || 'PRESENT';
+
+  const hours = Number(record.workedHours ?? 0);
+  if (hours >= 8) return 'PRESENT';
+  if (hours >= 4) return record.status === 'LATE' ? 'LATE' : 'HALF_DAY';
+  return 'ABSENT';
+};
+
 export const AttendancePage: React.FC = () => {
   const { user } = useAuth();
   
@@ -272,6 +290,20 @@ export const AttendancePage: React.FC = () => {
     }
   };
 
+  // Calculate check-out time based on check-in time and duration in hours
+  const calculateEndTime = (dateStr: string, timeStr: string, hours: number): string => {
+    try {
+      if (!timeStr || !dateStr) return '';
+      const [h, m] = timeStr.split(':').map(Number);
+      const d = new Date(`${dateStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+      const endMs = d.getTime() + hours * 3600000;
+      const endD = new Date(endMs);
+      return `${String(endD.getHours()).padStart(2, '0')}:${String(endD.getMinutes()).padStart(2, '0')}`;
+    } catch {
+      return '';
+    }
+  };
+
   // Open Correction Modal
   const openCorrectionModal = (record: AttendanceRecord) => {
     setCorrectingRecord(record);
@@ -279,25 +311,275 @@ export const AttendancePage: React.FC = () => {
 
     const checkInD = record.checkIn ? new Date(record.checkIn) : null;
     const checkOutD = record.checkOut ? new Date(record.checkOut) : null;
+    const initialStatus = record.status === 'CORRECTED' ? 'CORRECTED' : getEffectiveStatus(record);
+    const initialHours =
+      record.workedHours !== undefined ? String(record.workedHours) : initialStatus === 'ABSENT' ? '0' : '8.00';
 
     setCorrectionForm({
       checkInDate: checkInD ? checkInD.toISOString().split('T')[0] : record.attendanceDate.split('T')[0],
-      checkInTime: checkInD ? checkInD.toTimeString().substring(0, 5) : '09:00',
+      checkInTime: checkInD ? checkInD.toTimeString().substring(0, 5) : initialStatus === 'ABSENT' ? '' : '09:00',
       checkOutDate: checkOutD ? checkOutD.toISOString().split('T')[0] : record.attendanceDate.split('T')[0],
-      checkOutTime: checkOutD ? checkOutD.toTimeString().substring(0, 5) : '',
-      status: record.status || 'CORRECTED',
-      workedHours: record.workedHours !== undefined ? String(record.workedHours) : '',
+      checkOutTime:
+        checkOutD
+          ? checkOutD.toTimeString().substring(0, 5)
+          : checkInD && Number(initialHours) > 0
+          ? calculateEndTime(record.attendanceDate.split('T')[0], checkInD.toTimeString().substring(0, 5), Number(initialHours))
+          : '',
+      status: initialStatus,
+      workedHours: initialHours,
       correctionNote: record.correctionNote || '',
     });
   };
 
-  // Submit Correction Form
+  // Synchronize worked hours and status when check-in date changes
+  const handleCheckInDateChange = (date: string) => {
+    setCorrectionError(null);
+    setCorrectionForm((prev) => {
+      const updated = { ...prev, checkInDate: date };
+      if (updated.checkInTime && updated.checkOutDate && updated.checkOutTime) {
+        const start = new Date(`${date}T${updated.checkInTime}:00`);
+        const end = new Date(`${updated.checkOutDate}T${updated.checkOutTime}:00`);
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
+          const diffHours = Math.round(((end.getTime() - start.getTime()) / 3600000) * 100) / 100;
+          updated.workedHours = diffHours.toFixed(2);
+          if (updated.status !== 'CORRECTED') {
+            updated.status = diffHours >= 8 ? 'PRESENT' : diffHours >= 4 ? 'HALF_DAY' : 'ABSENT';
+          }
+        }
+      }
+      return updated;
+    });
+  };
+
+  // Synchronize worked hours and status when check-in time changes
+  const handleCheckInTimeChange = (time: string) => {
+    setCorrectionError(null);
+    setCorrectionForm((prev) => {
+      const updated = { ...prev, checkInTime: time };
+      if (updated.checkInDate && updated.checkOutDate && updated.checkOutTime) {
+        const start = new Date(`${updated.checkInDate}T${time}:00`);
+        const end = new Date(`${updated.checkOutDate}T${updated.checkOutTime}:00`);
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
+          const diffHours = Math.round(((end.getTime() - start.getTime()) / 3600000) * 100) / 100;
+          updated.workedHours = diffHours.toFixed(2);
+          if (updated.status !== 'CORRECTED') {
+            updated.status = diffHours >= 8 ? 'PRESENT' : diffHours >= 4 ? 'HALF_DAY' : 'ABSENT';
+          }
+        }
+      }
+      return updated;
+    });
+  };
+
+  // Synchronize worked hours and status when check-out date changes
+  const handleCheckOutDateChange = (date: string) => {
+    setCorrectionError(null);
+    setCorrectionForm((prev) => {
+      const updated = { ...prev, checkOutDate: date };
+      if (updated.checkInDate && updated.checkInTime && updated.checkOutTime) {
+        const start = new Date(`${updated.checkInDate}T${updated.checkInTime}:00`);
+        const end = new Date(`${date}T${updated.checkOutTime}:00`);
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
+          const diffHours = Math.round(((end.getTime() - start.getTime()) / 3600000) * 100) / 100;
+          updated.workedHours = diffHours.toFixed(2);
+          if (updated.status !== 'CORRECTED') {
+            updated.status = diffHours >= 8 ? 'PRESENT' : diffHours >= 4 ? 'HALF_DAY' : 'ABSENT';
+          }
+        }
+      }
+      return updated;
+    });
+  };
+
+  // Synchronize worked hours and status when check-out time changes
+  const handleCheckOutTimeChange = (time: string) => {
+    setCorrectionError(null);
+    setCorrectionForm((prev) => {
+      const updated = { ...prev, checkOutTime: time };
+      if (updated.checkInDate && updated.checkInTime && updated.checkOutDate) {
+        const start = new Date(`${updated.checkInDate}T${updated.checkInTime}:00`);
+        const end = new Date(`${updated.checkOutDate}T${time}:00`);
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
+          const diffHours = Math.round(((end.getTime() - start.getTime()) / 3600000) * 100) / 100;
+          updated.workedHours = diffHours.toFixed(2);
+          if (updated.status !== 'CORRECTED') {
+            updated.status = diffHours >= 8 ? 'PRESENT' : diffHours >= 4 ? 'HALF_DAY' : 'ABSENT';
+          }
+        }
+      }
+      return updated;
+    });
+  };
+
+  // Synchronize hours and time outputs when status is changed
+  const handleStatusChange = (newStatus: AttendanceStatus) => {
+    setCorrectionError(null);
+    setCorrectionForm((prev) => {
+      let newHours = prev.workedHours;
+      let newInTime = prev.checkInTime;
+      let newOutTime = prev.checkOutTime;
+
+      if (newStatus === 'PRESENT') {
+        newHours = '8.00';
+        if (!newInTime) newInTime = '09:00';
+        if (prev.checkInDate) {
+          newOutTime = calculateEndTime(prev.checkInDate, newInTime, 8);
+        }
+      } else if (newStatus === 'HALF_DAY') {
+        newHours = '4.00';
+        if (!newInTime) newInTime = '09:00';
+        if (prev.checkInDate) {
+          newOutTime = calculateEndTime(prev.checkInDate, newInTime, 4);
+        }
+      } else if (newStatus === 'ABSENT') {
+        newHours = '0';
+        newInTime = '';
+        newOutTime = '';
+      } else if (newStatus === 'LATE') {
+        newHours = '7.25';
+        newInTime = '09:45';
+        if (prev.checkInDate) {
+          newOutTime = '17:00';
+        }
+      }
+
+      return {
+        ...prev,
+        status: newStatus,
+        workedHours: newHours,
+        checkInTime: newInTime,
+        checkOutTime: newOutTime,
+      };
+    });
+  };
+
+  // Synchronize status and check-out time when worked hours are entered/changed
+  const handleWorkedHoursChange = (value: string) => {
+    setCorrectionError(null);
+    const hoursNum = parseFloat(value);
+
+    setCorrectionForm((prev) => {
+      let newStatus = prev.status;
+      let newOutTime = prev.checkOutTime;
+
+      if (!isNaN(hoursNum)) {
+        if (prev.status !== 'CORRECTED') {
+          if (hoursNum >= 8) {
+            newStatus = 'PRESENT';
+          } else if (hoursNum >= 4) {
+            newStatus = prev.status === 'LATE' ? 'LATE' : 'HALF_DAY';
+          } else {
+            newStatus = 'ABSENT';
+          }
+        }
+
+        if (prev.checkInDate && prev.checkInTime && hoursNum > 0 && hoursNum <= 24) {
+          newOutTime = calculateEndTime(prev.checkInDate, prev.checkInTime, hoursNum);
+        } else if (hoursNum === 0) {
+          newOutTime = '';
+        }
+      }
+
+      return {
+        ...prev,
+        workedHours: value,
+        status: newStatus,
+        checkOutTime: newOutTime,
+      };
+    });
+  };
+
+  // Submit Correction Form with comprehensive validations
   const handleCorrectionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!correctingRecord) return;
 
+    // 1. Mandatory compliance note validation
     if (!correctionForm.correctionNote.trim()) {
       setCorrectionError('A detailed correction note is required by system compliance.');
+      return;
+    }
+
+    // 2. Worked hours format and range validation
+    const hoursNum = parseFloat(correctionForm.workedHours);
+    if (correctionForm.workedHours === '' || isNaN(hoursNum)) {
+      setCorrectionError('Please specify valid worked hours.');
+      return;
+    }
+
+    if (hoursNum < 0) {
+      setCorrectionError('Worked hours cannot be negative.');
+      return;
+    }
+
+    if (hoursNum > 24) {
+      setCorrectionError('Worked hours cannot exceed 24 hours in a single day.');
+      return;
+    }
+
+    // 3. Time validation & chronology checks
+    let fullCheckIn: string | undefined = undefined;
+    let fullCheckOut: string | undefined = undefined;
+
+    if (correctionForm.status !== 'ABSENT') {
+      if (!correctionForm.checkInDate || !correctionForm.checkInTime) {
+        setCorrectionError('Check-in date and time are required for non-absent records.');
+        return;
+      }
+    }
+
+    if (correctionForm.checkInDate && correctionForm.checkInTime) {
+      const inDate = new Date(`${correctionForm.checkInDate}T${correctionForm.checkInTime}:00`);
+      if (isNaN(inDate.getTime())) {
+        setCorrectionError('Invalid Check-In date or time format.');
+        return;
+      }
+      fullCheckIn = inDate.toISOString();
+    }
+
+    if (correctionForm.checkOutDate && correctionForm.checkOutTime) {
+      const outDate = new Date(`${correctionForm.checkOutDate}T${correctionForm.checkOutTime}:00`);
+      if (isNaN(outDate.getTime())) {
+        setCorrectionError('Invalid Check-Out date or time format.');
+        return;
+      }
+      fullCheckOut = outDate.toISOString();
+
+      if (fullCheckIn) {
+        const inDate = new Date(fullCheckIn);
+        if (outDate <= inDate) {
+          setCorrectionError('Invalid Attendance Time: Check-out time must be strictly after check-in time.');
+          return;
+        }
+
+        const durationHrs = (outDate.getTime() - inDate.getTime()) / 3600000;
+        if (hoursNum > durationHrs + 0.05) {
+          setCorrectionError(
+            `Worked hours (${hoursNum.toFixed(2)} hrs) cannot exceed the time duration between Check-In and Check-Out (${durationHrs.toFixed(2)} hrs).`
+          );
+          return;
+        }
+      }
+    }
+
+    // 4. Hours vs Status Sync Validation
+    if (correctionForm.status === 'ABSENT' && hoursNum > 0) {
+      setCorrectionError('Validation Error: Absent status must have 0 worked hours. For recorded hours, select Present (≥ 8h) or Half Day (4–7.99h).');
+      return;
+    }
+
+    if (correctionForm.status === 'HALF_DAY' && (hoursNum < 4 || hoursNum >= 8)) {
+      setCorrectionError('Validation Error: Half Day status requires between 4.0 and less than 8.0 worked hours (≥ 8h is Present, < 4h is Absent).');
+      return;
+    }
+
+    if (correctionForm.status === 'PRESENT' && hoursNum < 8) {
+      setCorrectionError('Validation Error: Present status requires at least 8.0 worked hours. For 4 to 7.99 hours, choose Half Day.');
+      return;
+    }
+
+    if (correctionForm.status === 'LATE' && (hoursNum <= 0 || hoursNum > 8)) {
+      setCorrectionError('Validation Error: Late arrival shift requires worked hours between 0.1 and 8.0 hours.');
       return;
     }
 
@@ -305,22 +587,11 @@ export const AttendancePage: React.FC = () => {
     setCorrectionError(null);
 
     try {
-      let fullCheckIn: string | undefined = undefined;
-      let fullCheckOut: string | undefined = undefined;
-
-      if (correctionForm.checkInDate && correctionForm.checkInTime) {
-        fullCheckIn = new Date(`${correctionForm.checkInDate}T${correctionForm.checkInTime}:00`).toISOString();
-      }
-
-      if (correctionForm.checkOutDate && correctionForm.checkOutTime) {
-        fullCheckOut = new Date(`${correctionForm.checkOutDate}T${correctionForm.checkOutTime}:00`).toISOString();
-      }
-
       const payload: CorrectionDTO = {
         checkIn: fullCheckIn,
         checkOut: fullCheckOut,
         status: correctionForm.status,
-        workedHours: correctionForm.workedHours !== '' ? Number(correctionForm.workedHours) : undefined,
+        workedHours: hoursNum,
         correctionNote: correctionForm.correctionNote.trim(),
       };
 
@@ -376,17 +647,17 @@ export const AttendancePage: React.FC = () => {
         ? `${r.employee.firstName} ${r.employee.lastName} ${r.employee.employeeCode}`.toLowerCase()
         : '';
       const dateStr = r.attendanceDate.toLowerCase();
-      const statusStr = r.status.toLowerCase();
+      const statusStr = (getEffectiveStatus(r) || r.status).toLowerCase();
       return empName.includes(q) || dateStr.includes(q) || statusStr.includes(q);
     });
   }, [records, searchQuery]);
 
   // Compute KPI counts from current records
   const stats = useMemo(() => {
-    const present = records.filter((r) => r.status === 'PRESENT').length;
-    const late = records.filter((r) => r.status === 'LATE').length;
-    const halfDay = records.filter((r) => r.status === 'HALF_DAY').length;
-    const absent = records.filter((r) => r.status === 'ABSENT').length;
+    const present = records.filter((r) => getEffectiveStatus(r) === 'PRESENT').length;
+    const late = records.filter((r) => getEffectiveStatus(r) === 'LATE').length;
+    const halfDay = records.filter((r) => getEffectiveStatus(r) === 'HALF_DAY').length;
+    const absent = records.filter((r) => getEffectiveStatus(r) === 'ABSENT').length;
     const totalOT = records.reduce((acc, r) => acc + (Number(r.overtimeHours) || 0), 0);
 
     return {
@@ -485,17 +756,11 @@ export const AttendancePage: React.FC = () => {
       header: 'Status',
       accessor: 'status',
       render: (item) => {
-        const variantMap: Record<AttendanceStatus, 'success' | 'warning' | 'danger' | 'info' | 'primary' | 'neutral'> = {
-          PRESENT: 'success',
-          LATE: 'warning',
-          HALF_DAY: 'primary',
-          ABSENT: 'danger',
-          CORRECTED: 'info',
-        };
+        const effectiveStatus = getEffectiveStatus(item);
         return (
           <div className="flex items-center gap-1.5">
-            <Badge variant={variantMap[item.status] || 'neutral'}>
-              {item.status.replace('_', ' ')}
+            <Badge variant={statusVariantMap[effectiveStatus] || 'neutral'}>
+              {effectiveStatus.replace('_', ' ')}
             </Badge>
             {item.correctionNote && (
               <span 
@@ -740,10 +1005,11 @@ export const AttendancePage: React.FC = () => {
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
           {/* Search Box */}
           <div className="lg:col-span-4">
             <Input
+              label="Search"
               placeholder="Search employee, ID, or date..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -755,6 +1021,7 @@ export const AttendancePage: React.FC = () => {
           {/* Status Filter */}
           <div className="lg:col-span-3">
             <Select
+              label="Status"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -774,6 +1041,7 @@ export const AttendancePage: React.FC = () => {
           {/* Start Date */}
           <div className="lg:col-span-2">
             <Input
+              label="Start Date"
               type="date"
               value={startDate}
               onChange={(e) => {
@@ -787,6 +1055,7 @@ export const AttendancePage: React.FC = () => {
           {/* End Date */}
           <div className="lg:col-span-2">
             <Input
+              label="End Date"
               type="date"
               value={endDate}
               onChange={(e) => {
@@ -798,7 +1067,7 @@ export const AttendancePage: React.FC = () => {
           </div>
 
           {/* Reset Filters */}
-          <div className="lg:col-span-1 flex justify-end">
+          <div className="lg:col-span-1 flex justify-end pb-1">
             {(statusFilter !== 'all' || startDate || endDate || searchQuery) && (
               <Button
                 variant="ghost"
@@ -894,8 +1163,8 @@ export const AttendancePage: React.FC = () => {
                   <div className="text-xs font-semibold text-indigo-600">{viewRecord.employee.employeeCode}</div>
                 )}
               </div>
-              <Badge variant={viewRecord.status === 'PRESENT' ? 'success' : viewRecord.status === 'LATE' ? 'warning' : 'info'}>
-                {viewRecord.status}
+              <Badge variant={statusVariantMap[getEffectiveStatus(viewRecord)] || 'neutral'}>
+                {getEffectiveStatus(viewRecord).replace('_', ' ')}
               </Badge>
             </div>
 
@@ -990,15 +1259,15 @@ export const AttendancePage: React.FC = () => {
                 label="CHECK-IN DATE"
                 type="date"
                 value={correctionForm.checkInDate}
-                onChange={(e) => setCorrectionForm({ ...correctionForm, checkInDate: e.target.value })}
-                required
+                onChange={(e) => handleCheckInDateChange(e.target.value)}
+                required={correctionForm.status !== 'ABSENT'}
               />
               <Input
                 label="CHECK-IN TIME"
                 type="time"
                 value={correctionForm.checkInTime}
-                onChange={(e) => setCorrectionForm({ ...correctionForm, checkInTime: e.target.value })}
-                required
+                onChange={(e) => handleCheckInTimeChange(e.target.value)}
+                required={correctionForm.status !== 'ABSENT'}
               />
             </div>
 
@@ -1008,13 +1277,13 @@ export const AttendancePage: React.FC = () => {
                 label="CHECK-OUT DATE"
                 type="date"
                 value={correctionForm.checkOutDate}
-                onChange={(e) => setCorrectionForm({ ...correctionForm, checkOutDate: e.target.value })}
+                onChange={(e) => handleCheckOutDateChange(e.target.value)}
               />
               <Input
                 label="CHECK-OUT TIME"
                 type="time"
                 value={correctionForm.checkOutTime}
-                onChange={(e) => setCorrectionForm({ ...correctionForm, checkOutTime: e.target.value })}
+                onChange={(e) => handleCheckOutTimeChange(e.target.value)}
               />
             </div>
 
@@ -1023,23 +1292,44 @@ export const AttendancePage: React.FC = () => {
               <Select
                 label="STATUS"
                 value={correctionForm.status}
-                onChange={(e) => setCorrectionForm({ ...correctionForm, status: e.target.value as AttendanceStatus })}
+                onChange={(e) => handleStatusChange(e.target.value as AttendanceStatus)}
                 options={[
-                  { label: 'Corrected', value: 'CORRECTED' },
-                  { label: 'Present', value: 'PRESENT' },
-                  { label: 'Late', value: 'LATE' },
-                  { label: 'Half Day', value: 'HALF_DAY' },
-                  { label: 'Absent', value: 'ABSENT' },
+                  { label: 'Present (≥ 8.0 hrs)', value: 'PRESENT' },
+                  { label: 'Half Day (4.0 – 7.99 hrs)', value: 'HALF_DAY' },
+                  { label: 'Late Arrival', value: 'LATE' },
+                  { label: 'Absent (< 4.0 hrs)', value: 'ABSENT' },
+                  { label: 'Corrected (Manual Override)', value: 'CORRECTED' },
                 ]}
               />
               <Input
-                label="WORKED HOURS (OPTIONAL)"
+                label="WORKED HOURS"
                 type="number"
                 step="0.01"
+                min="0"
+                max="24"
                 placeholder="e.g. 8.0"
                 value={correctionForm.workedHours}
-                onChange={(e) => setCorrectionForm({ ...correctionForm, workedHours: e.target.value })}
+                onChange={(e) => handleWorkedHoursChange(e.target.value)}
+                required
               />
+            </div>
+
+            {/* Status & Hours Sync Helper / Badge */}
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-indigo-600" />
+                <span className="text-slate-600 font-medium">Synced Status Rule:</span>
+                <Badge variant={statusVariantMap[correctionForm.status] || 'neutral'}>
+                  {correctionForm.status.replace('_', ' ')}
+                </Badge>
+              </div>
+              <span className="text-[11px] text-slate-500 font-medium">
+                {Number(correctionForm.workedHours || 0) >= 8
+                  ? 'Full Day (≥ 8.0 hrs)'
+                  : Number(correctionForm.workedHours || 0) >= 4
+                  ? 'Half Day (4.0 – 7.99 hrs)'
+                  : 'Absent (< 4.0 hrs)'}
+              </span>
             </div>
 
             {/* Correction Note (Mandatory) */}
