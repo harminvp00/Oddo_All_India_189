@@ -6,6 +6,7 @@ import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Alert } from '../../components/ui/Alert';
 import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
 import {
   PieChart,
   Download,
@@ -18,13 +19,20 @@ import {
   Eye,
   CheckCircle2,
   FileSpreadsheet,
+  Mail,
+  Send,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import {
   downloadReportPdf,
   downloadExecutiveSummaryPdf,
+  getReportPdfBase64,
+  getExecutiveReportPdfBase64,
   REPORT_DATA_MAP,
   type ReportDataset,
 } from '../../utils/reportPdf';
+import { emailService } from '../../services/emailService';
 
 interface ReportModule {
   id: string;
@@ -107,11 +115,89 @@ export const ReportsPage: React.FC = () => {
   const [previewReport, setPreviewReport] = useState<ReportDataset | null>(null);
   const [downloadSuccessMsg, setDownloadSuccessMsg] = useState<string | null>(null);
 
+  // Email States
+  const [emailModalData, setEmailModalData] = useState<{
+    isOpen: boolean;
+    reportId: string;
+    reportTitle: string;
+    isExecutive?: boolean;
+  } | null>(null);
+  const [recipientEmail, setRecipientEmail] = useState('admin@peoplepay360.com');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailNotification, setEmailNotification] = useState<{
+    type: 'success' | 'danger';
+    text: string;
+  } | null>(null);
+
   const getPeriodLabel = (val: string) => {
     if (val === '2026-09') return 'September 2026';
     if (val === '2026-08') return 'August 2026';
     if (val === 'YTD') return 'FY 2026-27 YTD';
     return val;
+  };
+
+  const handleOpenEmailModal = (reportId: string, reportTitle: string, isExecutive = false) => {
+    setEmailModalData({
+      isOpen: true,
+      reportId,
+      reportTitle,
+      isExecutive,
+    });
+  };
+
+  const handleSendReportEmail = async () => {
+    if (!emailModalData) return;
+    const recipient = recipientEmail.trim();
+    if (!recipient) {
+      setEmailNotification({
+        type: 'danger',
+        text: 'Please enter a valid recipient email address.',
+      });
+      return;
+    }
+
+    try {
+      setIsSendingEmail(true);
+      setEmailNotification(null);
+      const periodLabel = getPeriodLabel(dateRange);
+
+      let pdfBase64 = '';
+      let filename = '';
+
+      if (emailModalData.isExecutive) {
+        const res = getExecutiveReportPdfBase64(periodLabel);
+        pdfBase64 = res.base64;
+        filename = res.filename;
+      } else {
+        const res = getReportPdfBase64(emailModalData.reportId, periodLabel);
+        pdfBase64 = res.base64;
+        filename = res.filename;
+      }
+
+      await emailService.sendReportEmail({
+        to: recipient,
+        reportTitle: emailModalData.reportTitle,
+        period: periodLabel,
+        pdfBase64,
+        filename,
+        subject: `PeoplePay360 Report: ${emailModalData.reportTitle} (${periodLabel})`,
+      });
+
+      setEmailNotification({
+        type: 'success',
+        text: `Report "${emailModalData.reportTitle}" successfully sent to ${recipient} with PDF attachment!`,
+      });
+      setEmailModalData(null);
+    } catch (err: any) {
+      console.error('Failed to send report email:', err);
+      const msg = err.response?.data?.error || err.message || 'Failed to deliver report email';
+      setEmailNotification({
+        type: 'danger',
+        text: `Email delivery failed: ${msg}`,
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleDownloadPdf = (reportId: string, reportTitle: string) => {
@@ -147,21 +233,51 @@ export const ReportsPage: React.FC = () => {
     <div className="space-y-6 animate-fadeIn pb-12">
       <PageHeader
         title="Reports & Analytics Center"
-        description="Extract enterprise intelligence, workforce demographics, statutory compliance filings, and payroll ledgers."
+        description="Extract enterprise intelligence, workforce demographics, statutory compliance filings, and dispatch verified PDF reports directly to stakeholder emails."
         icon={<PieChart className="w-6 h-6 text-[#714B67]" />}
         action={
-          <Button
-            variant="primary"
-            leftIcon={<Download className="w-4 h-4" />}
-            onClick={handleDownloadExecutivePdf}
-            title="Download Executive Master Report (PDF)"
-          >
-            Export Executive PDF
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Download className="w-4 h-4" />}
+              onClick={handleDownloadExecutivePdf}
+              title="Download Executive Master Report (PDF)"
+            >
+              Export PDF
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Mail className="w-4 h-4" />}
+              onClick={() => handleOpenEmailModal('executive', 'Executive Master Report', true)}
+              title="Email Executive Master Report"
+            >
+              Email Executive Report
+            </Button>
+          </div>
         }
       />
 
-      {/* Success Notification Alert */}
+      {/* Email Notification Alert */}
+      {emailNotification && (
+        <Alert
+          variant={emailNotification.type}
+          title={emailNotification.type === 'success' ? 'Report Emailed Successfully' : 'Email Dispatch Failed'}
+          onClose={() => setEmailNotification(null)}
+        >
+          <div className="flex items-center gap-2">
+            {emailNotification.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span>{emailNotification.text}</span>
+          </div>
+        </Alert>
+      )}
+
+      {/* Success Notification Alert for Downloads */}
       {downloadSuccessMsg && (
         <Alert
           variant="success"
@@ -330,7 +446,7 @@ export const ReportsPage: React.FC = () => {
                 <span>{report.lastGenerated}</span>
               </div>
 
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-1 items-center">
                 <Button
                   variant="outline"
                   size="sm"
@@ -345,11 +461,20 @@ export const ReportsPage: React.FC = () => {
                   variant="primary"
                   size="sm"
                   className="flex-1 text-xs"
-                  leftIcon={<Download className="w-3.5 h-3.5" />}
-                  onClick={() => handleDownloadPdf(report.id, report.title)}
-                  title="Download PDF Report"
+                  leftIcon={<Mail className="w-3.5 h-3.5" />}
+                  onClick={() => handleOpenEmailModal(report.id, report.title, false)}
+                  title="Email Report with PDF Attachment"
                 >
-                  Download PDF
+                  Email Report
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500"
+                  onClick={() => handleDownloadPdf(report.id, report.title)}
+                  title="Download PDF"
+                >
+                  <Download className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </CardContent>
@@ -372,20 +497,29 @@ export const ReportsPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setPreviewReport(null)}
                 >
-                  Close Preview
+                  Close
                 </Button>
                 <Button
-                  variant="primary"
+                  variant="outline"
                   size="sm"
                   leftIcon={<Download className="w-3.5 h-3.5" />}
                   onClick={() => handleDownloadPdf(previewReport.id, previewReport.title)}
                   title="Download PDF Statement"
                 >
                   Download PDF
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<Mail className="w-3.5 h-3.5" />}
+                  onClick={() => handleOpenEmailModal(previewReport.id, previewReport.title, false)}
+                  title="Email Report"
+                >
+                  Email Report
                 </Button>
               </div>
             </div>
@@ -510,6 +644,67 @@ export const ReportsPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Email Report Modal */}
+      {emailModalData && (
+        <Modal
+          isOpen={Boolean(emailModalData)}
+          onClose={() => !isSendingEmail && setEmailModalData(null)}
+          title={`Email Report: ${emailModalData.reportTitle}`}
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <div className="p-3.5 bg-purple-50/80 border border-[#714B67]/20 rounded-xl space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Report Document:</span>
+                <span className="font-bold text-slate-900">{emailModalData.reportTitle}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Reporting Period:</span>
+                <span className="font-semibold text-slate-800">{getPeriodLabel(dateRange)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">File Format:</span>
+                <span className="font-bold text-emerald-700">Official PDF Statement (Attached)</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Recipient Stakeholder / Admin Email
+              </label>
+              <Input
+                type="email"
+                placeholder="recipient@example.com"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                disabled={isSendingEmail}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                The recipient will receive an email from PeoplePay360 with the generated PDF report attached.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button
+                variant="ghost"
+                onClick={() => setEmailModalData(null)}
+                disabled={isSendingEmail}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                leftIcon={isSendingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                onClick={handleSendReportEmail}
+                disabled={isSendingEmail}
+              >
+                {isSendingEmail ? 'Dispatching Email...' : 'Send Report via Email'}
+              </Button>
             </div>
           </div>
         </Modal>

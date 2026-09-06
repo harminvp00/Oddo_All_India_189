@@ -15,6 +15,7 @@ import contractsRouter from './src/modules/contracts/routes';
 import timeoffRouter from './src/modules/timeoff/routes';
 import payrollRouter from './src/modules/payroll/routes';
 import settingsRouter from './src/modules/settings/routes';
+import reportsRouter from './src/modules/reports/routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -53,6 +54,8 @@ app.use('/api', timeoffRouter);
 app.use('/api/payroll', payrollRouter);
 app.use('/api', payrollRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/reports', reportsRouter);
+
 
 
 app.listen(PORT, () => {

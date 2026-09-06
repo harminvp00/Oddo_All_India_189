@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Modal } from '../../components/ui/Modal';
+import { Alert } from '../../components/ui/Alert';
 import {
   FileSpreadsheet,
   Search,
@@ -18,13 +19,22 @@ import {
   Clock,
   IndianRupee,
   ShieldCheck,
+  Loader2,
+  Send,
+  AlertCircle,
 } from 'lucide-react';
-import { downloadPayslipPdf, downloadAllPayslipsPdf } from '../../utils/payslipPdf';
+import {
+  downloadPayslipPdf,
+  downloadAllPayslipsPdf,
+  getPayslipPdfBase64,
+} from '../../utils/payslipPdf';
+import { emailService } from '../../services/emailService';
 
 interface MockPayslip {
   id: string;
   employeeName: string;
   employeeCode: string;
+  email: string;
   department: string;
   position: string;
   panNumber: string;
@@ -50,6 +60,7 @@ const INITIAL_PAYSLIPS: MockPayslip[] = [
     id: 'ps-1',
     employeeName: 'Rahul Sharma',
     employeeCode: 'EMP-001',
+    email: 'rahul.sharma@example.com',
     department: 'Engineering',
     position: 'Lead Architect',
     panNumber: 'ABCDE1234F',
@@ -73,6 +84,7 @@ const INITIAL_PAYSLIPS: MockPayslip[] = [
     id: 'ps-2',
     employeeName: 'Amit Patel',
     employeeCode: 'EMP-002',
+    email: 'amit.patel@example.com',
     department: 'Engineering',
     position: 'Senior Backend Engineer',
     panNumber: 'FGHIJ5678K',
@@ -96,6 +108,7 @@ const INITIAL_PAYSLIPS: MockPayslip[] = [
     id: 'ps-3',
     employeeName: 'Neha Shah',
     employeeCode: 'EMP-003',
+    email: 'neha.shah@example.com',
     department: 'Human Resources',
     position: 'HR Operations Lead',
     panNumber: 'KLMNO9012P',
@@ -119,6 +132,7 @@ const INITIAL_PAYSLIPS: MockPayslip[] = [
     id: 'ps-4',
     employeeName: 'Priya Mehta',
     employeeCode: 'EMP-004',
+    email: 'priya.mehta@example.com',
     department: 'Finance',
     position: 'Financial Controller',
     panNumber: 'PQRST3456U',
@@ -146,14 +160,116 @@ export const PayslipsPage: React.FC = () => {
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
   const [selectedPayslip, setSelectedPayslip] = useState<MockPayslip | null>(null);
 
+  // Email state
+  const [emailStatusMsg, setEmailStatusMsg] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailTargetPayslip, setEmailTargetPayslip] = useState<MockPayslip | null>(null);
+  const [customEmailRecipient, setCustomEmailRecipient] = useState('');
+  const [isBulkSending, setIsBulkSending] = useState(false);
+  const [bulkEmailConfirmOpen, setBulkEmailConfirmOpen] = useState(false);
+  const [bulkOverrideEmail, setBulkOverrideEmail] = useState('');
+
   const filteredData = payslips.filter((ps) => {
     const matchesSearch =
       ps.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ps.employeeCode.toLowerCase().includes(searchTerm.toLowerCase());
+      ps.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ps.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDept =
       departmentFilter === 'ALL' || ps.department === departmentFilter;
     return matchesSearch && matchesDept;
   });
+
+  const handleOpenEmailModal = (item: MockPayslip) => {
+    setEmailTargetPayslip(item);
+    setCustomEmailRecipient(item.email || 'employee@peoplepay360.com');
+  };
+
+  const handleSendSingleEmail = async () => {
+    if (!emailTargetPayslip) return;
+    const recipient = customEmailRecipient.trim() || emailTargetPayslip.email;
+    if (!recipient) {
+      setEmailStatusMsg({ type: 'danger', text: 'Please provide a valid recipient email address.' });
+      return;
+    }
+
+    try {
+      setIsSendingEmail(true);
+      setEmailStatusMsg(null);
+
+      // Generate the PDF document base64
+      const base64 = getPayslipPdfBase64(emailTargetPayslip);
+      const filename = `${emailTargetPayslip.employeeName.replace(/\s+/g, '_')}_Payslip_${emailTargetPayslip.period.replace(/\s+/g, '_')}.pdf`;
+
+      await emailService.sendPayslipEmail({
+        to: recipient,
+        employeeName: emailTargetPayslip.employeeName,
+        periodStart: emailTargetPayslip.period,
+        pdfBase64: base64,
+        filename,
+        subject: `Salary Statement for ${emailTargetPayslip.period} - ${emailTargetPayslip.employeeName}`,
+      });
+
+      setEmailStatusMsg({
+        type: 'success',
+        text: `Official payslip PDF successfully emailed to ${emailTargetPayslip.employeeName} (${recipient})!`,
+      });
+      setEmailTargetPayslip(null);
+    } catch (err: any) {
+      console.error('Failed to send payslip email:', err);
+      const msg = err.response?.data?.error || err.message || 'Failed to dispatch email';
+      setEmailStatusMsg({
+        type: 'danger',
+        text: `Failed to email payslip: ${msg}`,
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleSendBulkEmails = async () => {
+    if (!filteredData.length) return;
+
+    try {
+      setIsBulkSending(true);
+      setEmailStatusMsg(null);
+
+      const items = filteredData.map((ps) => {
+        const to = bulkOverrideEmail.trim() ? bulkOverrideEmail.trim() : ps.email;
+        const base64 = getPayslipPdfBase64(ps);
+        const filename = `${ps.employeeName.replace(/\s+/g, '_')}_Payslip_${ps.period.replace(/\s+/g, '_')}.pdf`;
+        return {
+          to,
+          employeeName: ps.employeeName,
+          periodStart: ps.period,
+          pdfBase64: base64,
+          filename,
+          subject: `Salary Statement for ${ps.period} - ${ps.employeeName}`,
+        };
+      });
+
+      const res = await emailService.sendBulkPayslipEmails(items);
+      const resultData = (res as any)?.data?.data || (res as any)?.data || {};
+      const sentCount = resultData.sentCount ?? items.length;
+      const failedCount = resultData.failedCount ?? 0;
+
+      setEmailStatusMsg({
+        type: 'success',
+        text: `Batch processing complete: Successfully emailed ${sentCount} employee payslip(s) with PDF attachment!${
+          failedCount > 0 ? ` (${failedCount} failed)` : ''
+        }`,
+      });
+      setBulkEmailConfirmOpen(false);
+    } catch (err: any) {
+      console.error('Failed bulk email send:', err);
+      const msg = err.response?.data?.error || err.message || 'Bulk dispatch failed';
+      setEmailStatusMsg({
+        type: 'danger',
+        text: `Failed to send bulk payslip emails: ${msg}`,
+      });
+    } finally {
+      setIsBulkSending(false);
+    }
+  };
 
   const columns: Column<MockPayslip>[] = [
     {
@@ -167,7 +283,7 @@ export const PayslipsPage: React.FC = () => {
           <div>
             <div className="font-bold text-slate-900 text-sm">{item.employeeName}</div>
             <div className="text-xs text-slate-400">
-              {item.employeeCode} • {item.department}
+              {item.employeeCode} • {item.email}
             </div>
           </div>
         </div>
@@ -236,6 +352,15 @@ export const PayslipsPage: React.FC = () => {
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => handleOpenEmailModal(item)}
+            title="Email Payslip PDF to Employee"
+            className="p-1.5 hover:bg-purple-50 text-[#714B67] hover:text-[#53344d] rounded-lg"
+          >
+            <Mail className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => downloadPayslipPdf(item)}
             title="Download PDF"
             className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600"
@@ -251,18 +376,47 @@ export const PayslipsPage: React.FC = () => {
     <div className="space-y-6 animate-fadeIn pb-12">
       <PageHeader
         title="Payslips & Salary Statements"
-        description="View, verify, and export monthly salary statements with full statutory breakdowns."
+        description="Generate, verify, and dispatch monthly salary statements directly to employee emails with statutory PDF attachments."
         icon={<FileSpreadsheet className="w-6 h-6 text-[#714B67]" />}
         action={
-          <Button
-            variant="outline"
-            leftIcon={<Download className="w-4 h-4" />}
-            onClick={() => downloadAllPayslipsPdf(filteredData)}
-          >
-            Export All PDFs
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Download className="w-4 h-4" />}
+              onClick={() => downloadAllPayslipsPdf(filteredData)}
+            >
+              Export PDFs
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Mail className="w-4 h-4" />}
+              onClick={() => setBulkEmailConfirmOpen(true)}
+            >
+              Email All Payslips
+            </Button>
+          </div>
         }
       />
+
+      {/* Email Notification Alert */}
+      {emailStatusMsg && (
+        <Alert
+          variant={emailStatusMsg.type}
+          title={emailStatusMsg.type === 'success' ? 'Email Sent Successfully' : 'Email Dispatch Failed'}
+          onClose={() => setEmailStatusMsg(null)}
+        >
+          <div className="flex items-center gap-2">
+            {emailStatusMsg.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span>{emailStatusMsg.text}</span>
+          </div>
+        </Alert>
+      )}
 
       {/* KPI Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -495,9 +649,9 @@ export const PayslipsPage: React.FC = () => {
                   Print
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="primary"
                   leftIcon={<Mail className="w-4 h-4" />}
-                  onClick={() => alert(`Emailing payslip PDF to ${selectedPayslip.employeeName}...`)}
+                  onClick={() => handleOpenEmailModal(selectedPayslip)}
                 >
                   Email Employee
                 </Button>
@@ -508,13 +662,133 @@ export const PayslipsPage: React.FC = () => {
                   Close
                 </Button>
                 <Button
-                  variant="primary"
+                  variant="outline"
                   leftIcon={<Download className="w-4 h-4" />}
                   onClick={() => downloadPayslipPdf(selectedPayslip)}
                 >
                   Download PDF
                 </Button>
               </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Single Payslip Email Modal */}
+      {emailTargetPayslip && (
+        <Modal
+          isOpen={Boolean(emailTargetPayslip)}
+          onClose={() => !isSendingEmail && setEmailTargetPayslip(null)}
+          title={`Email Payslip: ${emailTargetPayslip.employeeName}`}
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Employee:</span>
+                <span className="font-bold text-slate-900">{emailTargetPayslip.employeeName} ({emailTargetPayslip.employeeCode})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Pay Period:</span>
+                <span className="font-semibold text-slate-800">{emailTargetPayslip.period}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Net Salary:</span>
+                <span className="font-bold text-emerald-700">₹{emailTargetPayslip.net.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Attachment:</span>
+                <span className="font-mono text-purple-700">{emailTargetPayslip.employeeName.replace(/\s+/g, '_')}_Payslip_{emailTargetPayslip.period.replace(/\s+/g, '_')}.pdf</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Recipient Email Address
+              </label>
+              <Input
+                type="email"
+                placeholder="employee@example.com"
+                value={customEmailRecipient}
+                onChange={(e) => setCustomEmailRecipient(e.target.value)}
+                disabled={isSendingEmail}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                The employee will receive an official email from PeoplePay360 with their complete PDF payslip attached.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button
+                variant="ghost"
+                onClick={() => setEmailTargetPayslip(null)}
+                disabled={isSendingEmail}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                leftIcon={isSendingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                onClick={handleSendSingleEmail}
+                disabled={isSendingEmail}
+              >
+                {isSendingEmail ? 'Sending Email...' : 'Send Payslip Email'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Bulk Payslips Email Modal */}
+      {bulkEmailConfirmOpen && (
+        <Modal
+          isOpen={bulkEmailConfirmOpen}
+          onClose={() => !isBulkSending && setBulkEmailConfirmOpen(false)}
+          title="Email Payslips in Batch"
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <div className="p-4 bg-purple-50/70 border border-[#714B67]/20 rounded-xl text-xs space-y-2">
+              <div className="font-bold text-[#714B67] text-sm flex items-center gap-2">
+                <Mail className="w-4 h-4" /> Ready to Dispatch {filteredData.length} Payslips
+              </div>
+              <p className="text-slate-600 leading-relaxed">
+                This will automatically generate individual, signed PDF salary statements for all <strong>{filteredData.length}</strong> employees listed in current view and deliver them via SMTP.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Optional Override Recipient (for Testing)
+              </label>
+              <Input
+                type="email"
+                placeholder="Leave blank to send to each employee's email"
+                value={bulkOverrideEmail}
+                onChange={(e) => setBulkOverrideEmail(e.target.value)}
+                disabled={isBulkSending}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Leave empty to send each employee their respective statement, or provide a single testing email to receive all copies.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button
+                variant="ghost"
+                onClick={() => setBulkEmailConfirmOpen(false)}
+                disabled={isBulkSending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                leftIcon={isBulkSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                onClick={handleSendBulkEmails}
+                disabled={isBulkSending}
+              >
+                {isBulkSending ? 'Dispatching Batch...' : `Send ${filteredData.length} Emails`}
+              </Button>
             </div>
           </div>
         </Modal>

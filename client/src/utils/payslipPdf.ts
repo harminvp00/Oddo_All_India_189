@@ -344,3 +344,20 @@ export const downloadAllPayslipsPdf = (items: PayslipPdfItem[], period = 'Septem
 
   doc.save(`All_Payslips_${period}.pdf`);
 };
+
+/**
+ * Generates a base64 encoded PDF string for a single employee payslip.
+ */
+export const getPayslipPdfBase64 = (item: PayslipPdfItem): string => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  renderPayslipPage(doc, item);
+
+  const dataUri = doc.output('datauristring');
+  return dataUri.split(',')[1] || '';
+};
+

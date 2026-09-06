@@ -8,8 +8,10 @@ import {
   salaryStructureUpdateSchema,
 } from "./validation";
 import { PayrollError, PayrollService } from "./service";
+import { sendPayslipEmail, sendPayslipEmails } from "../../utils/email";
 
 const service = new PayrollService(prisma);
+
 
 const ok = (res: Response, data: any, status = 200) =>
   res.status(status).json({ success: true, data });
@@ -169,3 +171,75 @@ export async function payPayrun(req: Request, res: Response) {
     return fail(res, e);
   }
 }
+
+export async function sendPayslipEmailHandler(req: Request, res: Response) {
+  try {
+    const { to, employeeName, periodStart, periodEnd, pdfBase64, filename, subject } = req.body;
+
+    if (!to || !employeeName) {
+      return res.status(400).json({ success: false, error: { message: "to and employeeName are required" } });
+    }
+
+    let attachmentBuffer: Buffer;
+    if (pdfBase64) {
+      attachmentBuffer = Buffer.from(pdfBase64, 'base64');
+    } else {
+      attachmentBuffer = Buffer.from("%PDF-1.4\n%EOF\n");
+    }
+
+    const info = await sendPayslipEmail({
+      to,
+      employeeName,
+      periodStart: periodStart || new Date().toISOString().slice(0, 10),
+      periodEnd: periodEnd || new Date().toISOString().slice(0, 10),
+      attachment: {
+        filename: filename || `Payslip_${employeeName.replace(/\s+/g, '_')}.pdf`,
+        content: attachmentBuffer,
+        contentType: "application/pdf",
+      },
+      subject,
+    });
+
+    return ok(res, { success: true, messageId: info.messageId, message: `Payslip email sent to ${to}` });
+  } catch (e: any) {
+    console.error("Error sending payslip email:", e);
+    return res.status(500).json({ success: false, error: { message: e.message || "Failed to send payslip email" } });
+  }
+}
+
+export async function sendBulkPayslipsEmailHandler(req: Request, res: Response) {
+  try {
+    const { items } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: { message: "items must be a non-empty array" } });
+    }
+
+    const emailItems = items.map((item: any, idx: number) => {
+      const attachmentBuffer = item.pdfBase64
+        ? Buffer.from(item.pdfBase64, 'base64')
+        : Buffer.from("%PDF-1.4\n%EOF\n");
+
+      return {
+        to: item.to,
+        employeeName: item.employeeName,
+        periodStart: item.periodStart || new Date().toISOString().slice(0, 10),
+        periodEnd: item.periodEnd || new Date().toISOString().slice(0, 10),
+        employeeId: item.employeeId || idx + 1,
+        attachment: {
+          filename: item.filename || `Payslip_${item.employeeName.replace(/\s+/g, '_')}.pdf`,
+          content: attachmentBuffer,
+          contentType: "application/pdf" as const,
+        },
+        subject: item.subject,
+      };
+    });
+
+    const result = await sendPayslipEmails(emailItems);
+    return ok(res, result);
+  } catch (e: any) {
+    console.error("Error sending bulk payslip emails:", e);
+    return res.status(500).json({ success: false, error: { message: e.message || "Failed to send bulk payslip emails" } });
+  }
+}
+

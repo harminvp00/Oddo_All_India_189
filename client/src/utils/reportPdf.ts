@@ -748,3 +748,243 @@ export const downloadExecutiveSummaryPdf = (period = 'September 2026') => {
   doc.save(filename);
   return filename;
 };
+
+/**
+ * Returns a base64 encoded PDF string and filename for a specific report module.
+ */
+export const getReportPdfBase64 = (reportId: string, period = 'September 2026'): { base64: string; filename: string } => {
+  const data = REPORT_DATA_MAP[reportId] || REPORT_DATA_MAP['rep-1'];
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = 297;
+  const marginX = 14;
+  const contentWidth = pageWidth - marginX * 2;
+
+  // Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(17);
+  doc.setTextColor(113, 75, 103);
+  doc.text('PeoplePay360 Inc.', marginX, 16);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Enterprise HR & Payroll Analytics • CIN: U12345MH2026PTC123456', marginX, 21);
+  doc.text('Infinity Tower, Bandra Kurla Complex, Mumbai, Maharashtra 400051', marginX, 25);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(15, 23, 42);
+  doc.text(data.title.toUpperCase(), pageWidth - marginX, 16, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Report Period: ${period} • Category: ${data.category}`, pageWidth - marginX, 21, { align: 'right' });
+
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.line(marginX, 32, pageWidth - marginX, 32);
+
+  // KPIs
+  const kpiY = 36;
+  const kpiH = 17;
+  const kpiGap = 4;
+  const kpiCount = data.kpis.length;
+  const kpiW = (contentWidth - (kpiCount - 1) * kpiGap) / kpiCount;
+
+  data.kpis.forEach((kpi, idx) => {
+    const kX = marginX + idx * (kpiW + kpiGap);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(kX, kpiY, kpiW, kpiH, 1.5, 1.5, 'FD');
+    doc.setFillColor(113, 75, 103);
+    doc.rect(kX, kpiY, kpiW, 1.2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(kpi.label, kX + 3.5, kpiY + 5.2);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(kpi.value, kX + 3.5, kpiY + 11);
+    if (kpi.subtext) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(kpi.subtext, kX + 3.5, kpiY + 14.8);
+    }
+  });
+
+  // Table
+  const tableY = 58;
+  let currentX = marginX;
+  doc.setFillColor(113, 75, 103);
+  doc.setDrawColor(113, 75, 103);
+  doc.rect(marginX, tableY, contentWidth, 7.5, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(255, 255, 255);
+
+  data.columns.forEach((col) => {
+    const textX = col.align === 'right'
+      ? currentX + col.widthMm - 3
+      : col.align === 'center'
+      ? currentX + col.widthMm / 2
+      : currentX + 3;
+    doc.text(col.header, textX, tableY + 5.2, { align: col.align || 'left' });
+    currentX += col.widthMm;
+  });
+
+  let currentY = tableY + 7.5;
+  const rowH = 6.2;
+  data.rows.forEach((row, rowIdx) => {
+    const isEven = rowIdx % 2 === 0;
+    doc.setFillColor(isEven ? 255 : 248, isEven ? 255 : 250, isEven ? 255 : 252);
+    doc.setDrawColor(241, 245, 249);
+    doc.rect(marginX, currentY, contentWidth, rowH, 'FD');
+    currentX = marginX;
+    data.columns.forEach((col) => {
+      const val = String(row[col.key] ?? '—');
+      const textX = col.align === 'right'
+        ? currentX + col.widthMm - 3
+        : col.align === 'center'
+        ? currentX + col.widthMm / 2
+        : currentX + 3;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text(val, textX, currentY + 4.3, { align: col.align || 'left' });
+      currentX += col.widthMm;
+    });
+    currentY += rowH;
+  });
+
+  if (data.totalRow) {
+    const totalRowH = 7.5;
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(marginX, currentY, contentWidth, totalRowH, 'FD');
+    currentX = marginX;
+    data.columns.forEach((col) => {
+      const val = String(data.totalRow![col.key] ?? '');
+      const textX = col.align === 'right'
+        ? currentX + col.widthMm - 3
+        : col.align === 'center'
+        ? currentX + col.widthMm / 2
+        : currentX + 3;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(15, 23, 42);
+      doc.text(val, textX, currentY + 5.2, { align: col.align || 'left' });
+      currentX += col.widthMm;
+    });
+    currentY += totalRowH;
+  }
+
+  // Footer notes
+  const notesY = Math.max(currentY + 5, 155);
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(marginX, notesY, contentWidth, 20, 1.5, 1.5, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('AUDIT & COMPLIANCE CERTIFICATION', marginX + 4, notesY + 5.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.text('This statement is electronically generated from PeoplePay360 verified ledgers.', marginX + 4, notesY + 11);
+
+  const cleanTitle = data.title.replace(/[^a-zA-Z0-9]/g, '_');
+  const cleanPeriod = period.replace(/[^a-zA-Z0-9]/g, '_');
+  const filename = `${cleanTitle}_${cleanPeriod}.pdf`;
+
+  const dataUri = doc.output('datauristring');
+  const base64 = dataUri.split(',')[1] || '';
+
+  return { base64, filename };
+};
+
+/**
+ * Returns a base64 encoded PDF string and filename for the executive summary report.
+ */
+export const getExecutiveReportPdfBase64 = (period = 'September 2026'): { base64: string; filename: string } => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = 210;
+  const marginX = 14;
+  const contentWidth = pageWidth - marginX * 2;
+
+  // Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(113, 75, 103);
+  doc.text('PeoplePay360 Inc.', marginX, 20);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Executive Management Reporting Suite • CIN: U12345MH2026PTC123456', marginX, 25);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(15, 23, 42);
+  doc.text('EXECUTIVE MASTER REPORT', pageWidth - marginX, 20, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Period: ${period} • FY 2026-27`, pageWidth - marginX, 25, { align: 'right' });
+
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.line(marginX, 35, pageWidth - marginX, 35);
+
+  // Snapshot
+  const bannerY = 40;
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(marginX, bannerY, contentWidth, 34, 2, 2, 'FD');
+  doc.setFillColor(113, 75, 103);
+  doc.rect(marginX, bannerY, contentWidth, 1.5, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  doc.text('EXECUTIVE WORKFORCE & FINANCIAL SNAPSHOT', marginX + 6, bannerY + 8);
+
+  const kpis = [
+    { label: 'Total Headcount', val: '124 Staff', sub: 'Across 5 departments' },
+    { label: 'Monthly Gross', val: 'Rs. 45.2 Lakhs', sub: 'Budget utilization: 94.2%' },
+    { label: 'Net Take Home', val: 'Rs. 39.8 Lakhs', sub: 'Direct bank disbursements' },
+    { label: 'Statutory Taxes', val: 'Rs. 5.4 Lakhs', sub: '100% PF/PT/TDS paid' },
+  ];
+
+  const colW = (contentWidth - 12) / 4;
+  kpis.forEach((k, idx) => {
+    const kX = marginX + 6 + idx * colW;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(k.label.toUpperCase(), kX, bannerY + 16);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(113, 75, 103);
+    doc.text(k.val, kX, bannerY + 23);
+  });
+
+  const filename = `Executive_Master_Report_${period.replace(/\s+/g, '_')}.pdf`;
+  const dataUri = doc.output('datauristring');
+  const base64 = dataUri.split(',')[1] || '';
+
+  return { base64, filename };
+};
+

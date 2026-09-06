@@ -27,4 +27,9 @@ router.post("/payruns/:id/compute", run, c.computePayrun);
 router.post("/payruns/:id/validate", run, c.validatePayrun);
 router.post("/payruns/:id/pay", run, c.payPayrun);
 
+router.post("/payslips/send-email", run, c.sendPayslipEmailHandler);
+router.post("/payslips/send-email-bulk", run, c.sendBulkPayslipsEmailHandler);
+router.post("/payslips/:id/email", run, c.sendPayslipEmailHandler);
+
+
 export default router;
