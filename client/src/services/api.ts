@@ -7,8 +7,8 @@
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-// Default development token for local demo
-export const DEFAULT_DEV_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEiLCJlbWFpbCI6ImFkbWluQHBlb3BsZXBheTM2MC5jb20iLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3ODg1OTkwMjAsImV4cCI6MTc5MTE5MTAyMH0.k9jTZyarOa-it_B_JaoKTNudW617EpqYrXqj_rUrh7g';
+// Default development token for local demo (Admin User ID 11)
+export const DEFAULT_DEV_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjExIiwiZW1haWwiOiJhZG1pbkBwZW9wbGVwYXkzNjAuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzg4NjU5MzM2LCJleHAiOjE3OTEyNTEzMzZ9.44DxQiq5SerdI3gv05Lpdk1tqZDqMan2Ygin87x8_0I';
 
 export class APIError extends Error {
   code: string;

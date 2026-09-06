@@ -5,9 +5,9 @@ import { authenticate, requireRole } from "../../middleware/auth";
 const router = Router();
 router.use(authenticate);
 
-const read = requireRole(["HR_PAYROLL_USER", "HR_PAYROLL_MANAGER", "ADMIN"]);
-const write = requireRole(["HR_PAYROLL_MANAGER", "ADMIN"]);
-const run = requireRole(["HR_PAYROLL_USER", "HR_PAYROLL_MANAGER", "ADMIN"]);
+const read = requireRole(["HR_MANAGER", "HR_PAYROLL_USER", "HR_PAYROLL_MANAGER", "ADMIN"]);
+const write = requireRole(["HR_MANAGER", "HR_PAYROLL_MANAGER", "ADMIN"]);
+const run = requireRole(["HR_MANAGER", "HR_PAYROLL_USER", "HR_PAYROLL_MANAGER", "ADMIN"]);
 
 router.get("/salary-rules", read, c.listSalaryRules);
 router.get("/salary-rules/:id", read, c.getSalaryRule);
