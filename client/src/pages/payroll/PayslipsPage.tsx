@@ -19,6 +19,7 @@ import {
   IndianRupee,
   ShieldCheck,
 } from 'lucide-react';
+import { downloadPayslipPdf, downloadAllPayslipsPdf } from '../../utils/payslipPdf';
 
 interface MockPayslip {
   id: string;
@@ -235,7 +236,7 @@ export const PayslipsPage: React.FC = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => alert(`Downloading PDF payslip for ${item.employeeName}...`)}
+            onClick={() => downloadPayslipPdf(item)}
             title="Download PDF"
             className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600"
           >
@@ -256,9 +257,9 @@ export const PayslipsPage: React.FC = () => {
           <Button
             variant="outline"
             leftIcon={<Download className="w-4 h-4" />}
-            onClick={() => alert('Exporting all payslips to ZIP archive...')}
+            onClick={() => downloadAllPayslipsPdf(filteredData)}
           >
-            Bulk Export ZIP
+            Export All PDFs
           </Button>
         }
       />
@@ -509,7 +510,7 @@ export const PayslipsPage: React.FC = () => {
                 <Button
                   variant="primary"
                   leftIcon={<Download className="w-4 h-4" />}
-                  onClick={() => alert(`Downloading signed PDF statement for ${selectedPayslip.employeeName}...`)}
+                  onClick={() => downloadPayslipPdf(selectedPayslip)}
                 >
                   Download PDF
                 </Button>
