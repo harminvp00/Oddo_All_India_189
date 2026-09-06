@@ -11,6 +11,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Alert } from '../../components/ui/Alert';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../context/AuthContext';
+import { getStoredAvatar } from '../../utils/avatarUtils';
 import type { UserAccount, UserRole, UserStatus, PaginationMeta } from '../../types';
 import {
   Users,
@@ -482,29 +483,56 @@ export const UsersPage: React.FC = () => {
                   return (
                     <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-400 text-white font-bold flex items-center justify-center text-xs shadow-sm">
-                            {u.fullName
-                              ? u.fullName
-                                  .split(' ')
-                                  .map((n) => n[0])
-                                  .join('')
-                                  .toUpperCase()
-                                  .substring(0, 2)
-                              : u.email[0].toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-slate-900 flex items-center gap-2">
-                              {u.fullName || 'Unnamed User'}
-                              {isSelf && (
-                                <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
-                                  You
-                                </span>
-                              )}
+                        {(() => {
+                          const avatar =
+                            u.avatarUrl ||
+                            u.avatar_url ||
+                            (u.email ? getStoredAvatar(u.email) : null) ||
+                            (u.employeeCode ? getStoredAvatar(u.employeeCode) : null) ||
+                            (u.employeeId ? getStoredAvatar(u.employeeId) : null);
+
+                          return (
+                            <div className="flex items-center gap-3">
+                              {avatar ? (
+                                <img
+                                  src={avatar}
+                                  alt={u.fullName || u.email}
+                                  className="w-9 h-9 rounded-full object-cover shadow-xs border border-slate-200 shrink-0"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                    const fallback = (e.target as HTMLElement).nextElementSibling as HTMLElement;
+                                    if (fallback) fallback.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                className={`w-9 h-9 rounded-full bg-gradient-to-tr from-[#714B67] to-[#5b3c53] text-white font-bold flex items-center justify-center text-xs shadow-xs shrink-0 ${
+                                  avatar ? 'hidden' : ''
+                                }`}
+                              >
+                                {u.fullName
+                                  ? u.fullName
+                                      .split(' ')
+                                      .map((n) => n[0])
+                                      .join('')
+                                      .toUpperCase()
+                                      .substring(0, 2)
+                                  : u.email[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-slate-900 flex items-center gap-2">
+                                  {u.fullName || 'Unnamed User'}
+                                  {isSelf && (
+                                    <span className="text-[10px] font-bold bg-[#F5EFF4] text-[#714B67] border border-purple-100 px-1.5 py-0.5 rounded">
+                                      You
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-400">ID: #{u.id}</div>
+                              </div>
                             </div>
-                            <div className="text-xs text-slate-400">ID: #{u.id}</div>
-                          </div>
-                        </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-5 py-4 text-slate-600 font-mono text-xs">{u.email}</td>
                       <td className="px-5 py-4">{getRoleBadge(u.role)}</td>

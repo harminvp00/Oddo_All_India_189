@@ -685,9 +685,9 @@ export const NewEmployeePage: React.FC = () => {
                 <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
                   <IndianRupee className="w-4 h-4" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <CardTitle className="text-sm sm:text-base font-extrabold text-slate-900">Salary Compensation & Initial Contract</CardTitle>
-                  <p className="text-[11px] text-slate-500 font-medium leading-normal">Define monthly gross compensation and statutory salary structure for instant payroll readiness</p>
+                <div>
+                  <CardTitle className="text-sm font-extrabold text-slate-900 text-center">Salary Compensation & Initial Contract</CardTitle>
+                  <p className="text-[11px] text-slate-500 font-medium">Define monthly gross compensation and statutory salary structure for instant payroll readiness</p>
                 </div>
               </div>
               <span className="self-start sm:self-auto text-[10px] font-extrabold text-emerald-700 bg-emerald-100/80 border border-emerald-200 px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0">

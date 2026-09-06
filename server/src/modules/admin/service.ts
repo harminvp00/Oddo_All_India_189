@@ -50,6 +50,7 @@ export async function listUsers(query: {
         full_name: true,
         role: true,
         status: true,
+        avatar_url: true,
         created_at: true,
         last_login_at: true,
         employees: {
@@ -73,6 +74,8 @@ export async function listUsers(query: {
     fullName: u.full_name,
     role: u.role,
     status: u.status,
+    avatarUrl: u.avatar_url,
+    avatar_url: u.avatar_url,
     createdAt: u.created_at,
     lastLoginAt: u.last_login_at,
     employeeId: u.employees ? u.employees.id.toString() : null,
@@ -105,6 +108,7 @@ export async function getUserById(id: string) {
       full_name: true,
       role: true,
       status: true,
+      avatar_url: true,
       created_at: true,
       last_login_at: true,
       employees: {
@@ -128,6 +132,8 @@ export async function getUserById(id: string) {
     fullName: user.full_name,
     role: user.role,
     status: user.status,
+    avatarUrl: user.avatar_url,
+    avatar_url: user.avatar_url,
     createdAt: user.created_at,
     lastLoginAt: user.last_login_at,
     employee: user.employees

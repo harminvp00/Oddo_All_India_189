@@ -33,6 +33,8 @@ export interface UserAccount {
   lastLoginAt?: string | null;
   employeeId?: string | null;
   employeeCode?: string | null;
+  avatarUrl?: string | null;
+  avatar_url?: string | null;
   employee?: {
     id: string;
     employeeCode: string;

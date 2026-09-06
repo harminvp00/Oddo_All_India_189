@@ -1,40 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AuthLayout } from '../components/layout/AuthLayout';
-import { Input } from '../components/ui/Input';
-import { Button } from '../components/ui/Button';
-import { Alert } from '../components/ui/Alert';
-import { Modal } from '../components/ui/Modal';
-import { useAuth } from '../context/AuthContext';
-import { 
-  Mail, 
-  Lock, 
-  ArrowRight, 
-  Eye, 
-  EyeOff, 
-  Sparkles, 
-  ShieldCheck, 
-  CheckCircle2, 
-  User, 
-  Building2 
-} from 'lucide-react';
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: any) => void;
-          prompt: () => void;
-          renderButton: (parent: HTMLElement, options: any) => void;
-        };
-      };
-    };
-  }
-}
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthLayout } from "../components/layout/AuthLayout";
+import { Input } from "../components/ui/Input";
+import { Button } from "../components/ui/Button";
+import { Alert } from "../components/ui/Alert";
+import { useAuth } from "../context/AuthContext";
+import {
+  Mail,
+  Lock,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Sparkles,
+  ShieldCheck,
+  CheckCircle2,
+  User,
+  Building2,
+} from "lucide-react";
 
 // Google full-color SVG icon
-const GoogleIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+const GoogleIcon: React.FC<{ className?: string }> = ({
+  className = "w-5 h-5",
+}) => (
   <svg className={className} viewBox="0 0 24 24">
     <path
       fill="#4285F4"
@@ -55,41 +42,50 @@ const GoogleIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' })
   </svg>
 );
 
-const GOOGLE_DEMO_ACCOUNTS = [
-  {
-    name: 'Krish Patel (Super Admin)',
-    email: 'admin@peoplepay360.com',
-    role: 'SUPER ADMIN',
-    dept: 'Executive Management',
-    avatar: 'KP',
-  },
-  {
-    name: 'Rahul Sharma (Lead Engineer)',
-    email: 'rahul.sharma@peoplepay360.com',
-    role: 'HR PAYROLL USER',
-    dept: 'Engineering',
-    avatar: 'RS',
-  },
-  {
-    name: 'Neha Shah (HR Lead)',
-    email: 'neha.shah@peoplepay360.com',
-    role: 'HR MANAGER',
-    dept: 'Human Resources',
-    avatar: 'NS',
-  },
-];
-
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login, googleLogin, loading } = useAuth();
+  const { login, loading, refreshProfile } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
-  const [customGoogleEmail, setCustomGoogleEmail] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const callbackToken = params.get("token");
+    const callbackError = params.get("error");
+
+    if (callbackError) {
+      const errorMap: Record<string, string> = {
+        USER_NOT_PROVISIONED: "Your Google account is not registered. Please contact an administrator to provision an account.",
+        ACCOUNT_DISABLED: "This account is disabled. Please contact system administrator.",
+        google_not_configured: "Google Authentication is not configured on the server.",
+        missing_google_code: "Missing authorization code from Google.",
+        missing_google_token: "Google did not return an identity token.",
+        INVALID_GOOGLE_TOKEN: "Failed to verify Google ID token. Please try again.",
+        google_auth_failed: "Google Authentication failed. Please try again.",
+      };
+      setError(errorMap[callbackError] || callbackError || "Google Authentication failed. Please try again.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    if (!callbackToken) return;
+
+    setIsGoogleLoading(true);
+    localStorage.setItem("token", callbackToken);
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    refreshProfile()
+      .then(() => navigate("/dashboard", { replace: true }))
+      .catch((err: any) => {
+        localStorage.removeItem("token");
+        setError(err?.message || "Google Authentication failed while loading profile. Please try again.");
+      })
+      .finally(() => setIsGoogleLoading(false));
+  }, [navigate, refreshProfile]);
 
   // Standard Email/Password Login
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,53 +93,39 @@ export const Login: React.FC = () => {
     setError(null);
 
     if (!email || !password) {
-      setError('Please enter both email and password.');
+      setError("Please enter both email and password.");
       return;
     }
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Invalid credentials. Please verify your email and password.');
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Invalid credentials. Please verify your email and password.",
+      );
     }
   };
 
-  // Google Sign-In Handler
-  const handleGoogleSignIn = async (selectedEmail?: string) => {
+  const handleGoogleSignIn = () => {
     setError(null);
     setIsGoogleLoading(true);
-
-    const targetEmail = selectedEmail || customGoogleEmail || 'admin@peoplepay360.com';
-
-    try {
-      // First attempt backend Google auth or seamless login with Google email
-      await login(targetEmail, 'Password123!');
-      setIsGoogleModalOpen(false);
-      navigate('/dashboard');
-    } catch (err: any) {
-      // Fallback direct login for development/demo
-      try {
-        await login('admin@peoplepay360.com', 'Password123!');
-        setIsGoogleModalOpen(false);
-        navigate('/dashboard');
-      } catch (fallbackErr: any) {
-        setError(fallbackErr?.message || 'Google Authentication failed. Please try again.');
-      }
-    } finally {
-      setIsGoogleLoading(false);
-    }
+    window.location.assign(
+      `${import.meta.env.VITE_API_URL || "/api"}/auth/google/login`,
+    );
   };
 
   // Quick Demo Login Shortcut
   const handleQuickLogin = async (demoEmail: string) => {
     setEmail(demoEmail);
-    setPassword('Password123!');
+    setPassword("Password123!");
     try {
-      await login(demoEmail, 'Password123!');
-      navigate('/dashboard');
+      await login(demoEmail, "Password123!");
+      navigate("/dashboard");
     } catch (err: any) {
-      setError('Failed to login with demo account.');
+      setError("Failed to login with demo account.");
     }
   };
 
@@ -156,7 +138,11 @@ export const Login: React.FC = () => {
     >
       <div className="space-y-5 animate-fadeIn">
         {error && (
-          <Alert variant="danger" title="Authentication Failed" onClose={() => setError(null)}>
+          <Alert
+            variant="danger"
+            title="Authentication Failed"
+            onClose={() => setError(null)}
+          >
             {error}
           </Alert>
         )}
@@ -167,18 +153,17 @@ export const Login: React.FC = () => {
           variant="outline"
           fullWidth
           size="lg"
-          onClick={() => setIsGoogleModalOpen(true)}
+          onClick={handleGoogleSignIn}
           isLoading={isGoogleLoading}
           leftIcon={<GoogleIcon className="w-5 h-5" />}
           className="bg-white hover:bg-slate-50 border-slate-300 text-slate-700 font-bold text-sm shadow-xs py-2.5 transition-all hover:border-slate-400"
         >
-          {isGoogleLoading ? 'Connecting to Google...' : 'Continue with Google'}
+          {isGoogleLoading ? "Connecting to Google..." : "Continue with Google"}
         </Button>
 
         {/* Divider */}
         <div className="relative flex items-center justify-center my-2">
-          <div className="border-t border-slate-200 w-full" />
-          <span className="bg-white px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider relative">
+          <span className="bg-white text-2xl px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider relative">
             or sign in with email
           </span>
         </div>
@@ -198,7 +183,7 @@ export const Login: React.FC = () => {
           <div className="relative">
             <Input
               label="PASSWORD"
-              type={showPassword ? 'text' : 'password'}
+              type={showPassword ? "text" : "password"}
               required
               placeholder="••••••••"
               value={password}
@@ -210,7 +195,11 @@ export const Login: React.FC = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               }
             />
@@ -225,7 +214,6 @@ export const Login: React.FC = () => {
               />
               Keep me signed in
             </label>
-            <span className="text-[11px] text-slate-400">Default: Password123!</span>
           </div>
 
           <Button
@@ -237,118 +225,52 @@ export const Login: React.FC = () => {
             rightIcon={<ArrowRight className="w-4 h-4" />}
             className="mt-1 shadow-md shadow-[#714B67]/20 font-bold text-sm py-2.5"
           >
-            {loading ? 'Authenticating...' : 'Sign In to Workspace'}
+            {loading ? "Authenticating..." : "Sign In to Workspace"}
           </Button>
         </form>
 
         {/* Quick Demo Accounts Helper */}
         <div className="pt-4 border-t border-slate-100">
-          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+          {/* <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
             <span>Quick 1-Click Demo Login</span>
             <Sparkles className="w-3.5 h-3.5 text-[#714B67]" />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => handleQuickLogin('admin@peoplepay360.com')}
+              onClick={() => handleQuickLogin("admin@peoplepay360.com")}
               className="p-2 rounded-xl bg-slate-50 hover:bg-[#714B67]/10 hover:border-[#714B67]/30 border border-slate-200 text-left transition-all group"
             >
-              <div className="text-xs font-bold text-slate-900 group-hover:text-[#714B67]">Super Admin</div>
+              <div className="text-xs font-bold text-slate-900 group-hover:text-[#714B67]">
+                Super Admin
+              </div>
               <div className="text-[10px] text-slate-400">Full Access</div>
             </button>
 
             <button
               type="button"
-              onClick={() => handleQuickLogin('rahul.sharma@peoplepay360.com')}
+              onClick={() => handleQuickLogin("rahul.sharma@peoplepay360.com")}
               className="p-2 rounded-xl bg-slate-50 hover:bg-teal-50 hover:border-teal-300 border border-slate-200 text-left transition-all group"
             >
-              <div className="text-xs font-bold text-slate-900 group-hover:text-teal-700">Payroll Lead</div>
+              <div className="text-xs font-bold text-slate-900 group-hover:text-teal-700">
+                Payroll Lead
+              </div>
               <div className="text-[10px] text-slate-400">Engineering</div>
             </button>
 
             <button
               type="button"
-              onClick={() => handleQuickLogin('neha.shah@peoplepay360.com')}
+              onClick={() => handleQuickLogin("neha.shah@peoplepay360.com")}
               className="p-2 rounded-xl bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 border border-slate-200 text-left transition-all group"
             >
-              <div className="text-xs font-bold text-slate-900 group-hover:text-indigo-700">HR Manager</div>
+              <div className="text-xs font-bold text-slate-900 group-hover:text-indigo-700">
+                HR Manager
+              </div>
               <div className="text-[10px] text-slate-400">Operations</div>
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
-
-      {/* Google Account Selector Modal */}
-      {isGoogleModalOpen && (
-        <Modal
-          isOpen={isGoogleModalOpen}
-          onClose={() => setIsGoogleModalOpen(false)}
-          title="Sign in with Google Account"
-          maxWidth="sm"
-        >
-          <div className="space-y-4">
-            <div className="text-center p-2">
-              <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto mb-2 shadow-xs">
-                <GoogleIcon className="w-6 h-6" />
-              </div>
-              <h3 className="font-extrabold text-slate-900 text-base">Choose an organizational Google account</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Select a provisioned account to continue to PeoplePay 360</p>
-            </div>
-
-            {/* List of accounts */}
-            <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-              {GOOGLE_DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => handleGoogleSignIn(acc.email)}
-                  className="w-full p-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors text-left group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#714B67] to-slate-800 text-white font-bold text-xs flex items-center justify-center">
-                      {acc.avatar}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-slate-900 group-hover:text-[#714B67]">{acc.name}</div>
-                      <div className="text-xs text-slate-400">{acc.email}</div>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {acc.role}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Google Email Option */}
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-              <div className="text-xs font-bold text-slate-700">Or use your corporate Google workspace email:</div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="your.email@gmail.com / domain.com"
-                  value={customGoogleEmail}
-                  onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                  className="bg-white text-xs"
-                />
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() => handleGoogleSignIn(customGoogleEmail)}
-                >
-                  Sign In
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsGoogleModalOpen(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </AuthLayout>
   );
 };
