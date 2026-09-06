@@ -144,7 +144,7 @@ export const NewPayrunPage: React.FC = () => {
 
       setTimeout(() => {
         setComputationProgress(70);
-        setCurrentStageText('Applying salary rules (Basic, HRA, Transport, PF & TDS)...');
+        setCurrentStageText('Applying s (Basic, HRA, Transport, PF & TDS)...');
       }, 1000);
 
       setTimeout(() => {
@@ -169,7 +169,7 @@ export const NewPayrunPage: React.FC = () => {
     <div className="space-y-6 animate-fadeIn pb-12 max-w-5xl mx-auto">
       <PageHeader
         title="Create New Payrun"
-        description="Configure parameters, audit attendance, compute salary rules, and disburse payroll."
+        description="Configure parameters, audit attendance, compute s, and disburse payroll."
         icon={<Calculator className="w-6 h-6 text-[#714B67]" />}
         action={
           <Button variant="ghost" onClick={() => navigate('/payroll/payruns')}>
@@ -187,22 +187,20 @@ export const NewPayrunPage: React.FC = () => {
             return (
               <div
                 key={s.id}
-                className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${
-                  isCurrent
-                    ? 'bg-[#714B67]/10 border border-[#714B67]/30 text-[#714B67]'
-                    : isCompleted
+                className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${isCurrent
+                  ? 'bg-[#714B67]/10 border border-[#714B67]/30 text-[#714B67]'
+                  : isCompleted
                     ? 'bg-emerald-50/60 border border-emerald-200 text-emerald-800'
                     : 'bg-slate-50 border border-slate-200/60 text-slate-400'
-                }`}
+                  }`}
               >
                 <div
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                    isCompleted
-                      ? 'bg-emerald-600 text-white'
-                      : isCurrent
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${isCompleted
+                    ? 'bg-emerald-600 text-white'
+                    : isCurrent
                       ? 'bg-[#714B67] text-white shadow-xs'
                       : 'bg-white text-slate-400 border border-slate-200'
-                  }`}
+                    }`}
                 >
                   {isCompleted ? <Check className="w-4 h-4" /> : s.id}
                 </div>
@@ -382,15 +380,14 @@ export const NewPayrunPage: React.FC = () => {
                     <div
                       key={emp.id}
                       onClick={() => toggleEmployee(emp.id)}
-                      className={`p-3.5 flex items-center justify-between cursor-pointer transition-colors ${
-                        isSelected ? 'bg-[#714B67]/5 hover:bg-[#714B67]/10' : 'bg-white hover:bg-slate-50'
-                      }`}
+                      className={`p-3.5 flex items-center justify-between cursor-pointer transition-colors ${isSelected ? 'bg-[#714B67]/5 hover:bg-[#714B67]/10' : 'bg-white hover:bg-slate-50'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => {}}
+                          onChange={() => { }}
                           className="w-4 h-4 text-[#714B67] rounded accent-[#714B67] cursor-pointer"
                         />
                         <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center">
@@ -569,10 +566,10 @@ export const NewPayrunPage: React.FC = () => {
               {step === 1
                 ? 'Proceed to Structure'
                 : step === 2
-                ? 'Select Employees'
-                : step === 3
-                ? 'Run Calculation Engine'
-                : 'Review Final Summary'}
+                  ? 'Select Employees'
+                  : step === 3
+                    ? 'Run Calculation Engine'
+                    : 'Review Final Summary'}
             </Button>
           ) : (
             <Button
